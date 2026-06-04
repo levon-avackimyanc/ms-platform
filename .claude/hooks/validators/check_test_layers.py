@@ -82,11 +82,25 @@ def load_parse_plan():
 
 
 def resolve_glob(pattern: str) -> list[Path]:
-    """Resolve a glob pattern from the project root."""
+    """Resolve a glob (or comma-separated list of globs) from the project root.
+
+    A layer that spans several source files (common for Rust, where unit tests
+    live next to code across multiple crates) declares them as a comma-separated
+    list. Each item is globbed independently and the results are unioned, so the
+    per-file infra-signature and scenario checks still run on every declared file.
+    """
     root = Path.cwd()
-    # Handle both `**/*.ext` and `path/**/*.ext` forms
-    matches = list(root.glob(pattern))
-    return [p for p in matches if p.is_file()]
+    # Split on commas/newlines; strip surrounding backticks/whitespace per item.
+    parts = [p.strip().strip('`').strip() for p in re.split(r'[,\n]', pattern)]
+    seen: dict[str, Path] = {}
+    for part in parts:
+        if not part:
+            continue
+        # Handle both `**/*.ext` and `path/**/*.ext` forms
+        for p in root.glob(part):
+            if p.is_file():
+                seen[str(p)] = p
+    return list(seen.values())
 
 
 def extract_scenario_token(scenario: str) -> str:

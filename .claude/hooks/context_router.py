@@ -283,6 +283,29 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "pytest-randomly", "pytest-timeout",
         "diff-cover", "branch coverage python",
     ], 4),
+
+    # ── Rust Patterns (frap-core engine) ──
+    ("rust-patterns#basics", [
+        "rust", ".rs", "cargo", "crate", "cargo.toml",
+        "frap-core", "frap_core", "element_map", "page_object",
+        "trait", "impl block", "serde", "deserialize", "serialize",
+        "clippy", "rustfmt", "coreerror",
+    ], 10),
+    ("rust-patterns#perf", [
+        "o(n^2)", "o(n2)", "uniqueness index", "hashmap index",
+        "borrow vs clone", "avoid clone rust",
+    ], 6),
+
+    # ── Rust Testing (frap-core engine) ──
+    ("rust-testing#structure", [
+        "cargo test", "#[test]", "#[cfg(test)]", "rust unit test",
+        "rust test", "table-driven test",
+    ], 8),
+    ("rust-testing#integration", [
+        "rust integration test", "contract test", "tests/ directory",
+        "rust fixtures", "fixtures rust", "cargo test --test",
+        "expected.json",
+    ], 7),
 ]
 
 # Companion rules: if ANY section with prefix matched → auto-include companion
@@ -292,6 +315,8 @@ COMPANION_RULES: list[tuple[str, str]] = [
     ("react-patterns#", "react-patterns#core"),
     ("python-patterns#", "python-patterns#typing"),     # baseline для всех Python задач
     ("python-testing#", "python-testing#structure"),    # baseline для всех pytest задач
+    ("rust-patterns#", "rust-patterns#basics"),         # baseline для всех Rust задач
+    ("rust-testing#", "rust-testing#structure"),        # baseline для всех cargo-test задач
 ]
 
 # Detect "test" keyword per stack → auto-include testing sections
@@ -301,6 +326,9 @@ TEST_KEYWORD_RULES: list[tuple[list[str], str]] = [
     # If Python context + "test/тест" mentioned → python-testing#structure
     (["python", "fastapi", "pydantic", ".py", "pytest", "asyncio"],
      "python-testing#structure"),
+    # If Rust context + "test" mentioned → rust-testing#structure
+    (["rust", "cargo", "crate", ".rs", "frap-core", "frap_core"],
+     "rust-testing#structure"),
 ]
 
 MAX_SECTIONS = 8
