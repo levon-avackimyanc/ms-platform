@@ -1,4 +1,16 @@
-# Python
+# ---------- Java / Maven ----------
+target/
+*.jar
+*.war
+*.ear
+*.class
+dependency-reduced-pom.xml
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle (на случай если кто-то использует)
+.gradle/
+
+# ---------- Python ----------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -31,7 +43,7 @@ dist/
 build/
 *.egg
 
-# TypeScript
+# ---------- TypeScript / Node ----------
 node_modules/
 *.tsbuildinfo
 .npm
@@ -44,14 +56,16 @@ node_modules/
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-dist/
-build/
 *.js.map
 *.d.ts.map
 
-# IDEs
-.vscode/
+# ---------- IDEs ----------
 .idea/
+*.iml
+*.iws
+*.ipr
+out/
+.vscode/
 *.swp
 *.swo
 *~
@@ -60,10 +74,17 @@ build/
 .c9/
 *.launch
 .settings/
+.factorypath
+.springBeans
+.sts4-cache/
 *.sublime-workspace
 *.sublime-project
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
 
-# OS
+# ---------- OS ----------
 .DS_Store
 .DS_Store?
 ._*
@@ -71,53 +92,55 @@ build/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 .directory
 .Apple*
 .LSOverride
 
-# Environment
+# ---------- Environment / secrets ----------
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+application-local.yml
+application-local.yaml
+application-local.properties
 
-# Logs
+# ---------- Logs / runtime traces ----------
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+traces/
 
-# Testing
+# ---------- Test reports ----------
 htmlcov/
-.coverage
 .nyc_output
 coverage/
+**/surefire-reports/
+**/failsafe-reports/
+**/site/
 
-# Temporary files
+# ---------- Temporary files ----------
 *.tmp
 *.temp
 *.bak
-.cache/
-tmp/
-temp/
 
-
+# ---------- MCP / Claude Code ----------
 .mcp.json
-
-output
-outputs/
-
-extras/
-
-# Claude Code data
 .claude/data/
 
-# Database files
+# ---------- ms-platform runtime ----------
+.platform-state/
+.worktrees/
+output
+outputs/
+extras/
+
+# ---------- Misc ----------
 *.db
 *.sqlite
-
-# Task manager data
 apps/task-manager/data/
