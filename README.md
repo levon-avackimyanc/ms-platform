@@ -1,81 +1,72 @@
 # ms-platform
 
-**Multiagent System Platform** — внутренний CLI-инструмент команды для оркестрации сквозного цикла *Analytic → Dev → Test* силами специализированных ИИ-агентов.
+**Multiagent System Platform** — конфигурация Claude Code, оркестрирующая сквозной цикл *Analytic → Dev → Test* силами специализированных ИИ-агентов.
 
-> **Концепция:** внутренний аналог Claude Code для корпоративного контура (skills, hooks, агенты, HITL-gate'ы, артефакты в git).
+> **Подход:** Claude Code как backend. Вся работа агентов — через стандартные примитивы (skills, hooks, agents, commands, MCP, refs). Никакого собственного приложения / CLI / LLM-gateway.
 
-Подробности — в проектных документах:
-- [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md) — архитектура целиком.
-- [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md) — YAML-спецификации агентов всех scope'ов.
-- [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md) — план MVP-0 на 2 недели.
+Подробности по предметной модели — в дизайн-документах (см. ниже секцию ⚠️ **Outdated**).
 
 ---
 
-## Технический стек
+## Что внутри
 
-| Слой | Технология | Версия |
-|---|---|---|
-| Язык | Java | 21 LTS (Amazon Corretto) |
-| Платформа | Spring Boot | 3.5.14 |
-| CLI | Spring Shell | 3.4.0 |
-| LLM | Spring AI (OpenAI-compatible) | 1.0.0 |
-| Git workspace | Eclipse JGit | 7.3.0 |
-| Сборка | Maven | 3.9+ |
-| Тесты | JUnit 5, Mockito, Spring Shell test | — |
+```
+.claude/        # ядро — Claude Code конфигурация
+  ├── agents/   # роли исполнителей (builder, plan-reviewer, validator, …)
+  ├── commands/ # slash-команды (/plan_w_team, /smart_build, …)
+  ├── hooks/    # lifecycle-хуки + валидаторы (Python)
+  ├── refs/     # доменные референсы (java-patterns, java-testing, …)
+  └── settings.json
+docs/           # документация компонентов (context-routing, validators, …)
+specs/          # research-материалы (SOTA multi-agent teams, …)
+install.sh      # установка хуков в Claude Code
+uninstall.sh    # удаление
+ruff.toml       # Python-линтер для хуков
+ty.toml         # type-checker для хуков
+```
 
 ## Требования к окружению
 
-- **JDK 21** (Corretto 21 / Temurin 21 / любой совместимый).
-- Maven 3.9+.
-- Доступ к LLM через корп-прокси (DeepSeek / GigaChat / Anthropic) — настраивается через env-переменные (см. ниже).
+- **Claude Code CLI** (`claude`) — основной runtime.
+- **uv** — менеджер Python, нужен для запуска хуков и валидаторов.
+- **Git** — артефакты живут в ветках инкрементов.
 
-Проверь окружение:
-
-```bash
-java -version       # должно быть 21.x
-mvn -version
-```
-
-Если активный JDK не 21, выстави его:
+## Установка
 
 ```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+./install.sh
 ```
 
-## Сборка и запуск
+Скрипт регистрирует хуки в локальной директории `.claude/` относительно проекта, на котором будет работать Claude Code.
 
-```bash
-mvn clean verify                 # сборка + прогон тестов
-java -jar target/ms-platform.jar status
+## Использование
+
+Стандартными slash-командами Claude Code:
+
+```text
+/plan_w_team   # планирование с командой
+/smart_build   # сборка с роутингом контекста
 ```
 
-Ожидаемый вывод `status`:
-
-```
-application:   ms-platform
-java:          21.x.x (Amazon.com Inc.)
-spring-boot:   3.5.14
-workspace:     /path/to/your/cwd
-traces (dir):  /path/to/your/cwd/.platform-state/traces
-tracing on:    true
-```
-
-## Конфигурация
-
-Конфигурация подхватывается из `application.yml` + env-переменных.
-
-| Env | Назначение | По умолчанию |
-|---|---|---|
-| `MS_LLM_BASE_URL` | base URL OpenAI-compatible прокси | `https://api.openai.com` |
-| `MS_LLM_API_KEY` | API-ключ LLM | `placeholder-replace-via-env` |
-| `MS_LLM_MODEL` | имя модели по умолчанию | `gpt-4o-mini` |
-| `MS_WORKSPACE_ROOT` | корневая директория для веток инкрементов | `pwd` |
-| `MS_TRACES_DIR` | директория для локального трейсинга | `<cwd>/.platform-state/traces` |
+(новые команды появляются по мере добавления `.claude/commands/*.md`)
 
 ## Состояние разработки
 
-MVP-0 в активной разработке по [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md). Текущая фаза — Day 1 (skeleton).
+Идёт построение MVP. Базовая Claude Code-конфигурация подтянута из апстрима [`a-simeshin/claude-code-hooks-mastery`](https://github.com/a-simeshin/claude-code-hooks-mastery) (форк disler). Дальнейшая работа — расширение `.claude/` под наши Analytic / Test scope-ы.
 
 ## Лицензия
 
-[Apache License 2.0](./LICENSE).
+[Apache License 2.0](./LICENSE) для всего, что добавлено в этом проекте.
+Содержимое `.claude/`, `docs/`, `specs/`, `install.sh`, `uninstall.sh`, `ruff.toml`, `ty.toml` — перенесено из апстрима; см. оригинальный [`UPSTREAM-README.md`](./UPSTREAM-README.md).
+
+---
+
+## ⚠️ Outdated дизайн-документы
+
+Документы ниже были написаны под Spring Boot/Java реализацию. После pivot'а на Claude Code-only они частично устарели — содержимое о scope-ах (Analytic / Dev / Test) и потоках агентов остаётся актуальным, всё про Spring/JGit/LLM Gateway — нет.
+
+- [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md)
+- [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md)
+- [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md)
+
+Решение о pivot'е и что осталось актуальным — см. [`PIVOT.md`](./PIVOT.md).
