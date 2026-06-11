@@ -1,59 +1,116 @@
-# Мультиагентная система оркестрации Analytic → Dev → Test
+# ms-platform — Архитектурное предложение
 
-**Статус:** черновик архитектурного предложения для обсуждения с командой.
-**Дата:** 2026-06-03.
+**Статус:** v2, переписано 2026-06-11 после pivot на Claude Code-only backend.
+**См. также:** [`PIVOT.md`](./PIVOT.md), [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md), [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md), [`UPSTREAM-README.md`](./UPSTREAM-README.md).
 
-> Документ собран на основе whiteboard-схем трёх scope-ов (Analytic / Dev / Test) и серии уточняющих вопросов. Содержит зафиксированные требования и предлагаемую архитектуру.
+> Предыдущая версия документа описывала собственную Java/Spring платформу с LLM Gateway. Она устарела. См. `PIVOT.md` для истории решения и `git log` для содержания.
 
 ---
 
 ## Часть I. Сводка требований
 
 ### 1. Что строим
-**Внутренний CLI-инструмент** для одной команды (с прицелом на масштабирование на другие команды), **сознательный аналог Claude Code для корпоративного контура**. Оркестрирует сквозной цикл *бизнес-аналитика → разработка → тестирование* силами специализированных ИИ-агентов с человеческими gate'ами в ключевых точках.
+
+**Конфигурацию Claude Code** (`.claude/`), которая оркестрирует сквозной цикл *бизнес-аналитика → разработка → тестирование* силами специализированных ИИ-агентов с человеческими gate'ами в ключевых точках.
+
+Мы НЕ строим:
+- собственный CLI-инструмент,
+- собственный LLM Gateway,
+- собственный оркестратор фаз,
+- backend-сервис.
+
+Всё это уже даёт Claude Code как runtime; наша работа — наполнить его доменно-правильным набором `agents/`, `skills/`, `commands/`, `hooks/`, `refs/`, `mcp`-конфигов.
 
 ### 2. Что система производит
-**Готовый Docker-образ продукта**, пригодный к ручному деплою на тестовый стенд. После деплоя — автоматический прогон автотестов из Test_scope.
+
+Итоговый артефакт сквозного цикла — **Docker-образ продукта**, пригодный к ручному деплою на тестовый стенд. Сборка — обычным `mvn package` / `Dockerfile` под управлением `validator`-агента; деплой на стенд — вручную, вне системы; после деплоя — прогон автотестов и (опционально) анализ падений → BUG-routing.
 
 ### 3. Целевые проекты (которые система обрабатывает)
-Набор **микросервисов Java + Spring**, ~десятки тысяч строк каждый, **greenfield**-разработка инкрементов.
+
+Набор **микросервисов Java + Spring Boot 3.x**, ~десятки тысяч строк каждый, **greenfield**-разработка инкрементов (не legacy). Стек агентов мультиязычный из коробки (Java/React/TypeScript/Python/Rust в upstream-refs), наша команда фокусируется на Java/Spring.
 
 ### 4. Среда работы
-Корпоративный контур, локальная установка. **CLI-first**. Внешние LLM доступны через **корп-прокси**.
+
+Локально у разработчика. Запускается командой `claude` в каталоге **целевого микросервиса** при условии что в нём установлен наш `.claude/` (через `install.sh`) **или** при работе из каталога самого `ms-platform` для отладки конфигов.
 
 ### 5. Парадигма
-Сознательная отсылка к Claude Code: **skills, hooks, агенты-делегаты, worktree-изоляция, артефакты в git, HITL-gate'ы**.
+
+Стандартные примитивы Claude Code:
+
+| Примитив | Где живёт | Назначение в нашей системе |
+|---|---|---|
+| **agents** | `.claude/agents/*.md` | Роли: builder, plan-reviewer, validator (есть); business-analyst, analytic-reviewer, analyzer (добавляем) |
+| **commands** | `.claude/commands/*.md` | Slash-команды: `/plan_w_team`, `/smart_build` (есть); `/analyze`, `/test_run` (добавляем) |
+| **hooks** | `.claude/hooks/*.py` + `settings.json` | Lifecycle (Pre/PostToolUse, Stop, …) и валидаторы (spotless, jacoco, validate_plan, …) |
+| **skills** | (формат скиллов Claude Code если применимо) | Переиспользуемые «как делать X», вызываемые агентами по матчингу keyword'ов |
+| **refs** | `.claude/refs/*.md` | Бывший «tags registry» — готовые `java-patterns.md`, `java-testing.md`, и т. д. |
+| **MCP** | `.claude/settings.json` + MCP-серверы | Внешние инструменты: Context7 (docs), Serena (semantic code), OpenSpec и др. |
 
 ### 6. Три scope-а
 
-#### Analytic_scope (бизнес-аналитика)
-Чат-интервью с заказчиком → `increment.md` (ФТ/НФТ, business-flow, сценарии) → Py-валидатор (hook1) → LLM review (hook2) → **ручной gate валидации** → передача в Dev_scope.
-- Loop при fail: правит сам агент-аналитик; к заказчику обращается только если нужны уточнения.
+#### Analytic_scope (бизнес-аналитика) — **строим с нуля**
 
-#### Dev_scope (разработка)
-`increment.md` → системный аналитик-агент пишет `tech_spec.md` → explorer изучает кодбазу → Plan-агент (со скиллом `stackDefinition`) формирует `Plan.md` с разметкой тегами из tags registry → **team_lead** порождает N dev-агентов (и tester'ов для unit'ов) и завершается → dev-агенты работают **параллельно в собственных git worktree**, подгружая референсы по тегам → линтеры-хуки (Spotless, Spotbugs, JSpecify, jacoco, Sonar — все ошибки блокируют) → **per-agent reviewer (LLM по diff)** → build Docker-образа → **HITL merge-gate** → деплой вручную.
-- Лимит итераций по линтерам/reviewer'у — **5**, потом эскалация человеку.
+Команда `/analyze` запускает агента `business-analyst`. Он ведёт chat-interview с заказчиком (через UI Claude Code — встроенный чат), формирует `analytic/increment.md` со списком ФТ/НФТ, business-flow, сценариев, acceptance criteria.
 
-#### Test_scope (тестирование, зеркало Dev_scope)
-Тот же `increment.md` → системный аналитик → explorer → структурированный список тест-сценариев → Plan → team_lead → N агентов-автотестировщиков (всё кроме unit) → reviewer → автотесты в **отдельном репо** → запуск (Exec) → **Analyzer (LLM)** анализирует падения:
-- Если баг в автотесте — правит тот же агент-автотестировщик.
-- Если автотест валиден, есть расхождение со спекой — **BUG** уходит **системному аналитику Dev_scope**, запускается **полный цикл Dev_scope**.
+После записи `increment.md`:
+1. **`validate_increment.py`** (hook на Stop у `/analyze` или на Edit у файла) — детерминированная проверка структуры markdown'а.
+2. **`analytic-reviewer`** агент — семантическое ревью (сверка с исходной задачей заказчика, поиск противоречий/пробелов).
+3. **HITL gate** — заказчик/PO видит итог в чате, подтверждает (внутри сессии Claude Code, без отдельного приложения).
 
-Триггер: автоматически после merge в Dev + вручную. Режим — инкрементальный (новые + регрессы).
+Loop при fail валидатора или ревьюера: `business-analyst` правит сам; к заказчику обращается только если нужны уточнения.
 
-### 7. Tags registry
-Курируемый **человеком** md-файл с таблицей (3 поля: `имя | описание | ссылка на референс`). Референсы — отдельные md-файлы в директории проекта. Используется и dev-агентами, и автотестировщиками (теги для уровней пирамиды). На старте — без графа связей.
+#### Dev_scope (разработка) — **используем upstream + добавляем HITL**
+
+Готовые слои из upstream покрывают почти всё:
+
+- **`/plan_w_team`** (Opus) — agent-orchestrator, создаёт `specs/<плана>.md` с 8 обязательными секциями (включая `Testing Strategy` 80/15/5 и `Test Infrastructure (User-Declared)`). Внутри проводит **Test Infra Interview** с пользователем для заполнения раннеров.
+- **`plan-reviewer`** (Opus, read-only) — критический ревью плана по 10 критериям (Problem Alignment, Surgical Scope, Test Realism и т. д.) перед execution.
+- **TaskCreate / TaskUpdate / TaskList / TaskGet** — встроенная оркестрация задач: planner создаёт задачи, назначает owner, расставляет `addBlockedBy`, builder-агенты берут свои.
+- **`builder`** (Opus) — универсальный исполнитель (Java/React/Python). Auto-loads refs по стеку и keywords из `**Stack**` поля задачи.
+- **`validator`** (Sonnet, read-only) — пост-execution верификация: запускает `mvn spotless:check` / `mvn test` / declared runner'ы из плана, проверяет actual-vs-declared scenarios count, диффовый scope через `check_diff_scope.py`.
+- **Hooks:** PostToolUse → `validator_dispatcher.py` (запускает релевантный линтер по типу файла); Stop у `/plan_w_team` → `validate_plan.py` (проверка контракт-полноты плана).
+
+Что **добавляем**:
+- **`merge_gate`** команда или Stop-hook — финальное HITL-подтверждение перед коммитом/merge инкремента (аналог нашего «manual-merge-gate»).
+
+Чего **сознательно не делаем на старте**:
+- Параллельные worktree per dev-agent. `/plan_w_team` оркестрирует задачи последовательно через TaskList + owner — для MVP это достаточно. Worktree-параллелизм рассматриваем как будущую опцию.
+
+#### Test_scope (lite) — **простой запускатор + analyzer**
+
+В отличие от прежней концепции «отдельный полный mirror Dev_scope», в новой архитектуре большая часть тестов **пишется уже в рамках `/plan_w_team`** (mandatory integration layer + test pyramid). Поэтому отдельный Test_scope сжимается до:
+
+1. Команда **`/test_run`** — запускает declared runner'ы из последнего плана/инкремента в test-репозитории (если он отдельный) или прямо в текущем (если совпадает с `Files glob` плана). Логи прогона → `test/runs/<timestamp>/logs.ndjson`.
+2. Агент **`analyzer`** (Opus) — анализирует упавшие тесты, выносит verdict `bug_in_test` / `bug_in_product` с confidence. При `bug_in_product` — пишет **`bug.md`** в ветку инкремента.
+3. **BUG-routing:** `bug.md` становится новым входом для `/plan_w_team`, который запускает доработку Dev_scope (полный цикл от системного анализа).
+
+Уровни выше integration (system / e2e UI / load) — добавляем как новые «layers» в `Test Infrastructure (User-Declared)` плана, когда они понадобятся; отдельной инфраструктуры под них не строим.
+
+### 7. Refs (бывший tags registry)
+
+Курируемые человеком md-файлы в `.claude/refs/`. Из upstream уже есть:
+
+- `java-patterns.md` (24 KB), `java-testing.md` (56 KB) — **наш стек**.
+- `python-patterns.md` (95 KB), `python-testing.md` (66 KB).
+- `react-patterns.md` (54 KB).
+- `rust-patterns.md`, `rust-testing.md`.
+
+Раньше предполагалась таблица из 3 полей (имя, описание, ссылка). В Claude Code-парадигме refs — это **сами markdown'ы с разделами** (`#section`); матчинг через keyword'ы → секции делает `context-router.md` агент и `context_router.py` hook (см. `Section Routing Catalog` в `/plan_w_team`).
+
+Доменные refs нашей команды (по корпоративным библиотекам / внутренним MCP / RAG / liquibase-конвенциям и т. д.) **добавляем сюда же** новыми файлами или новыми секциями в существующих.
 
 ### 8. Кросс-функциональные решения
-- **Dev_scope реализуется поверх Claude Code** (CLI от Anthropic) с конфигурацией из репозитория коллеги [`a-simeshin/claude-code-hooks-mastery`](https://github.com/a-simeshin/claude-code-hooks-mastery) (форк disler). Наша CLI `ms` вызывает `claude` как backend, передавая `increment.md` и контекст. Лицензия и согласие коллеги подтверждены.
-- **LLM:**
-  - Analytic_scope, Test_scope: DeepSeek v4 Pro (планировщик, $$$), GigaChat (исполнители).
-  - Dev_scope: **Claude (через корп-прокси к Anthropic)** — натуральный для Claude Code.
-- **Retry / fallback:** на 5xx от прокси — fallback на другую модель. Остальные ошибки (timeout, rate-limit, parse fail) — обычный retry; политику детализируем позже.
-- **Observability — собственный упрощённый трейсинг.** Готовую корп-платформу не используем.
-- **Версионирование:** 1 инкремент = 1 ветка/коммит. Автотесты в отдельном репо линкуются с версией продукта **через git-теги** (одинаковый тег на оба репо).
-- **БД метаданных** — не нужна.
-- **Бюджет / SLA** — отложено.
+
+| Тема | Решение |
+|---|---|
+| **LLM-инфра** | Claude через сам Claude Code (Opus для планировщика/ревьюера/анализатора, Sonnet для верификатора, Haiku — если появятся быстрые / fan-out задачи). Своего матчинга «роль → модель» не делаем — Claude Code сам по `model:` в YAML-frontmatter агента. |
+| **Артефакты — где живут** | В git, в ветке инкремента: `analytic/`, `specs/<plan>.md`, `test/runs/<ts>/`. Никакой собственной БД. |
+| **Версионирование** | 1 инкремент = 1 ветка. Промежуточные коммиты по фазам (analytic / spec / build / test). Squash при approve — опция, не обязательная. |
+| **HITL точки** | (a) approve `increment.md` в чате с заказчиком (Analytic gate); (b) approve плана `/plan_w_team` (встроено в Claude Code — exit plan mode); (c) approve merge перед коммитом инкремента (`merge_gate`). |
+| **Failure-режимы** | Стандартные Claude Code: retry/exit при ошибках инструментов; наши hook-валидаторы возвращают exit≠0 → Claude Code сам интерпретирует и зовёт агента поправить. |
+| **Observability** | Trace встроенный в Claude Code + Stop-hook'и которые пишут логи. Свой трейсинг не строим. |
+| **Бюджет / SLA** | Не задаём; модель выбирается per-agent в YAML-frontmatter. Контроль расходов — через Claude Code (он показывает токены). |
+| **Корп-контур** | Claude Code должен запускаться через корп-прокси к Anthropic API (вопрос вне нашей конфигурации; решается на уровне инсталляции). |
 
 ---
 
@@ -62,186 +119,194 @@
 ### A. Высокоуровневая схема
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│            CLI (Spring Shell) — корневая команда: ms            │
-│  ms init / ms analyze / ms dev / ms test / ms trace / ms status │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────────────┐
-│                  Orchestrator Core (Spring Boot)                │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Flow Engine (Spring StateMachine или DSL)              │    │
-│  │  • Analytic Flow                                        │    │
-│  │  • Dev Flow                                             │    │
-│  │  • Test Flow                                            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Agent Runtime                                          │    │
-│  │  • Agent loader (читает .platform/agents/*.yaml)        │    │
-│  │  • Skill loader (читает .platform/skills/*.md)          │    │
-│  │  • Hook executor (детерминированные .py/.sh)            │    │
-│  │  • LLM Gateway (Spring AI) ── retry/fallback ──         │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Workspace Manager                                      │    │
-│  │  • JGit: worktree, branch, diff, merge                  │    │
-│  │  • File I/O: increment.md / tech_spec.md / Plan.md      │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Tracing (собственный упрощённый)                       │    │
-│  │  • span на каждый вызов агента / hook / LLM             │    │
-│  │  • запись в локальные json/ndjson-файлы                 │    │
-│  │  • CLI-команда `ms trace <run-id>` для просмотра        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└────────────────────┬────────────────────┬───────────────────────┘
-                     │                    │
-            ┌────────▼────────┐  ┌────────▼─────────┐
-            │  LLM Proxy      │  │  Tools / Skills  │
-            │  • DeepSeek v4  │  │  • Serena        │
-            │  • GigaChat     │  │  • Context7      │
-            │  • (etc)        │  │  • LSP           │
-            └─────────────────┘  │  • CodeIndexer   │
-                                 │  • linters       │
-                                 │  • py-validator  │
-                                 └──────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Пользователь (бизнес-аналитик / разработчик / QA / PO)      │
+└───────────────┬──────────────────────────────────────────────┘
+                │ chat / slash-commands
+                ▼
+┌──────────────────────────────────────────────────────────────┐
+│                       Claude Code (CLI)                      │
+│  • orchestrator, LLM gateway, tool runner, lifecycle hooks   │
+│  • Anthropic API (Opus / Sonnet / Haiku) ── через корп-прокси│
+└───────────────┬──────────────────────────────────────────────┘
+                │ читает .claude/ из cwd
+                ▼
+┌──────────────────────────────────────────────────────────────┐
+│              .claude/  (наш репозиторий ms-platform)         │
+│  ┌─ commands/   /plan_w_team  /smart_build  /analyze*  /test_run* │
+│  ┌─ agents/     builder, plan-reviewer, validator,           │
+│  │              business-analyst*, analytic-reviewer*, analyzer* │
+│  ├─ hooks/      lifecycle (Pre/PostToolUse/Stop/…) +         │
+│  │              validators/ (spotless, jacoco, validate_plan, │
+│  │                            validate_increment*, …)        │
+│  ├─ refs/       java-patterns, java-testing, …               │
+│  └─ settings.json (hook wiring + permissions + MCP)          │
+└───────────────┬──────────────────────────────────────────────┘
+                │ оперирует артефактами в
+                ▼
+┌──────────────────────────────────────────────────────────────┐
+│   Git-репо ЦЕЛЕВОГО продукта (или этот же — для дев-цикла)   │
+│  branch: increment/<name>                                    │
+│    ├── analytic/                                             │
+│    │     ├── original_task.txt                               │
+│    │     ├── increment.md            (бизнес-инкремент)      │
+│    │     └── review-report.json                              │
+│    ├── specs/                                                │
+│    │     └── <plan-name>.md          (план из /plan_w_team)  │
+│    ├── src/, pom.xml, …               (продукт сам)          │
+│    └── test/runs/<timestamp>/         (логи прогонов)        │
+└──────────────────────────────────────────────────────────────┘
+
+* — добавляем мы; всё остальное — уже есть из upstream.
 ```
 
-### B. Структура конфигурации (по образцу `.claude/`)
-
-В корне репо целевого продукта (или в `~/.platform/`):
+### B. Структура `.claude/`  — что есть и что добавляем
 
 ```
-.platform/
-├── agents/                 # роли (по одному файлу на агента)
-│   ├── business-analyst.yaml
-│   ├── system-analyst.yaml
-│   ├── explorer.yaml
-│   ├── planner.yaml
-│   ├── team-lead.yaml
-│   ├── dev.yaml
-│   ├── tester.yaml
-│   ├── reviewer.yaml
-│   ├── auto-tester.yaml
-│   └── analyzer.yaml
-├── skills/                 # переиспользуемые скиллы
-│   ├── analytic.md
-│   ├── explorer.md
-│   └── stack-definition.md
-├── hooks/                  # детерминированные точки расширения
-│   ├── analytic/
-│   │   └── md-validator.py        # hook1 в Analytic
-│   ├── dev/
-│   │   ├── spotless.sh
-│   │   ├── spotbugs.sh
-│   │   ├── jspecify.sh
-│   │   └── sonar.sh
-│   └── test/
-│       └── result-analyzer.py
-├── flows/                  # описания потоков (yaml/dsl)
-│   ├── analytic.flow.yaml
-│   ├── dev.flow.yaml
-│   └── test.flow.yaml
-├── tags-registry.md        # курируемая таблица тегов
-└── refs/                   # референсы на теги
-    ├── mcp.md
-    ├── rag.md
-    ├── liquibase.md
-    ├── autotest-integration.md
-    ├── autotest-e2e.md
-    └── ...
+.claude/
+├── commands/
+│   ├── plan_w_team.md         ✓ upstream — центральный планировщик Dev_scope
+│   ├── smart_build.md         ✓ upstream — сборка с роутингом контекста
+│   ├── analyze.md             ✗ ДОБАВИТЬ — старт Analytic_scope (business-analyst)
+│   └── test_run.md            ✗ ДОБАВИТЬ — запуск тестов + analyzer
+├── agents/
+│   ├── context-router.md      ✓ upstream — load-on-demand загрузчик refs
+│   ├── meta-agent.md          ✓ upstream
+│   ├── team/
+│   │   ├── builder.md         ✓ upstream — наш «dev» + «tester» (универсальный)
+│   │   ├── plan-reviewer.md   ✓ upstream — наш «plan-reviewer»
+│   │   └── validator.md       ✓ upstream — наш acceptance-validator
+│   ├── business-analyst.md    ✗ ДОБАВИТЬ — chat-interview с заказчиком
+│   ├── analytic-reviewer.md   ✗ ДОБАВИТЬ — ревью increment.md
+│   └── analyzer.md            ✗ ДОБАВИТЬ — анализ падений в тестах
+├── hooks/
+│   ├── pre_tool_use.py        ✓ upstream
+│   ├── post_tool_use.py       ✓ upstream
+│   ├── … (10 lifecycle skripтов)
+│   └── validators/
+│       ├── validate_plan.py            ✓ upstream
+│       ├── validate_new_file.py        ✓ upstream
+│       ├── validate_file_contains.py   ✓ upstream
+│       ├── check_diff_scope.py         ✓ upstream
+│       ├── check_test_layers.py        ✓ upstream
+│       ├── validator_dispatcher.py     ✓ upstream
+│       ├── spotless_validator.py       ✓ upstream
+│       ├── pmd_validator.py            ✓ upstream
+│       ├── jacoco_validator.py         ✓ upstream
+│       ├── maven_compile_validator.py  ✓ upstream
+│       ├── ruff_validator.py, …        ✓ upstream
+│       └── validate_increment.py       ✗ ДОБАВИТЬ — структурная проверка increment.md
+├── refs/
+│   ├── java-patterns.md       ✓ upstream — 24 KB патернов Java/Spring
+│   ├── java-testing.md        ✓ upstream — 56 KB патернов тестов
+│   ├── python-*, react-*, rust-*  ✓ upstream
+│   └── <domain refs>          ✗ ДОБАВИТЬ — корп-библиотеки, MCP, RAG, liquibase и т. д.
+├── settings.json              ✓ upstream — hook wiring (расширим под наши hooks)
+└── data/                      (runtime — в .gitignore)
 ```
 
-### C. Карта ролей агентов
+Условные обозначения: ✓ — есть в upstream, готово к использованию; ✗ — нужно добавить.
 
-| Агент | Скиллы | Модель | Где живёт |
-|---|---|---|---|
-| **business-analyst** | analytic | GigaChat | Analytic_scope |
-| **system-analyst** | analytic, explorer | DeepSeek (нужна точность) | Dev_scope + Test_scope |
-| **explorer** | explorer (+ tools: Serena/Context7/CodeIndexer/LSP) | DeepSeek | Dev_scope + Test_scope |
-| **planner** | stack-definition (+ tools), reads tags-registry | DeepSeek ($$$) | Dev_scope + Test_scope |
-| **team-lead** | оркестрация без LLM-творчества | GigaChat (детерминированный шаблон) | Dev_scope + Test_scope |
-| **dev** | подгружает референсы по тегам | GigaChat | Dev_scope |
-| **tester** | референсы по unit-тестам | GigaChat | Dev_scope |
-| **reviewer** | code-review по diff | DeepSeek | Dev_scope |
-| **auto-tester** | референсы по integ/sys/E2E/load | GigaChat | Test_scope |
-| **analyzer** | анализ логов прогонов | DeepSeek | Test_scope |
+### C. Карта агентов
+
+| Агент | Откуда | Модель | Назначение | Используется в |
+|---|---|---|---|---|
+| `business-analyst` | **наш** | Sonnet | Chat-interview с заказчиком, пишет `analytic/increment.md`. | Analytic_scope |
+| `analytic-reviewer` | **наш** | Opus | Сверка `increment.md` с исходной задачей, поиск пробелов/противоречий. | Analytic_scope |
+| `/plan_w_team` (как агент-orchestrator) | upstream | Opus | Создаёт `specs/<plan>.md` с 8 секциями + Test Infra Interview + декомпозиция на TaskCreate. | Dev_scope |
+| `plan-reviewer` | upstream | Opus | 10-критериальный ревью плана. | Dev_scope |
+| `builder` | upstream | Opus | Реализует задачи плана (код + тесты). | Dev_scope |
+| `validator` | upstream | Sonnet | Прогон declared runner'ов, scope-check, acceptance. | Dev_scope |
+| `analyzer` | **наш** | Opus | Анализ упавших тестов → `bug_in_test` / `bug_in_product`, пишет `bug.md`. | Test_scope |
 
 ### D. E2E поток данных
 
 ```
-[заказчик-человек]
-       │ CLI chat-interview
-       ▼
-[business-analyst] ──► increment.md (git, ветка инкремента)
-       │ ↻ Py-валидатор / LLM-review (loop until pass)
-       │ ↻ HITL: "valid? ручная"
-       ▼
-[system-analyst]   ──► tech_spec.md
-       │
-[explorer (Dev)]   ──► (контекст по кодбазе)
-       │
-[planner]          ──► Plan.md  (задачи + теги из tags-registry)
-       │
-[team-lead]        ──► создаёт worktree'ы и запускает агентов:
-       │                  ┌──► [dev #1] ──hook(линтеры)──► [reviewer]──┐
-       │                  ├──► [dev #2] ──hook(линтеры)──► [reviewer]──┤
-       │                  └──► [tester]                                │
-       │                          (loop ≤ 5 итераций per agent)        │
-       ▼                                                               ▼
-HITL: merge-gate ◄────────────── merge worktree'ев ─────────────────────┘
-       │
-       ▼
-[build] ──► Docker-образ
-       │
-       ▼  (manual deploy)
-=======================================================================
-       ▼ (после деплоя)
-[system-analyst] ──► tech_spec(test).md
-       │
-[explorer (Test)]
-       │
-[planner]          ──► Plan.md (test cases + теги уровней пирамиды)
-       │
-[team-lead]        ──► [auto-tester #1..N], [reviewer]
-       │
-Exec → Analyzer
-       │
-       ├─ ошибка в тесте → правит автотестировщик
-       └─ расхождение со спекой → BUG → возврат к [system-analyst] Dev_scope (полный цикл)
+[заказчик / pо]
+   │ /analyze "<задача>"
+   ▼
+[business-analyst]  ◄── chat-interview ──►  [заказчик]
+   │ write analytic/increment.md
+   ▼
+[validate_increment.py]  (Stop hook)
+   │ ok? → continue   │ fail? → возврат к business-analyst
+   ▼
+[analytic-reviewer]   (subagent call)
+   │ status=ok? → continue   │ needs_revision? → возврат к business-analyst
+   ▼
+HITL approve (в чате — пользователь подтверждает)
+   │
+   ▼
+[/plan_w_team  "<контекст из increment.md>"]
+   │ Test Infra Interview + plan write
+   ▼
+specs/<plan>.md  ← validate_plan.py (Stop hook) + plan-reviewer (subagent)
+   │ verdict PASS / FAIL  │ FAIL → правки плана; PASS → exit plan mode (HITL approve)
+   ▼
+[builder]  по задачам из TaskList
+   │ PostToolUse → validator_dispatcher.py (линтеры) на каждый Edit/Write
+   ▼
+[validator]  на финальном `validate-all`
+   │ ok? → continue    │ fail? → возврат к builder'у
+   ▼
+[merge_gate]  ✗ ДОБАВИТЬ (либо simple `/merge` команда, либо Stop-hook на validator)
+   │ approved? → commit + (опционально) tag + build Docker
+   ▼
+═══════════════════════════════════════════════════════════════════════════
+   │ (ручной деплой Docker-образа на стенд)
+   ▼
+[/test_run]  ✗ ДОБАВИТЬ
+   │ запуск declared runner'ов
+   ▼
+test/runs/<timestamp>/logs.ndjson + junit.xml
+   │
+   ▼
+[analyzer]   (если есть упавшие тесты)
+   │
+   ├── bug_in_test  → возврат builder'у (правит тест)
+   └── bug_in_product → bug.md → /plan_w_team полный цикл повторно
 ```
 
-### E. Ключевые межсистемные интерфейсы
+### E. Артефакты-контракты между фазами
 
-- **Артефакты как контракты** — `increment.md`, `tech_spec.md`, `Plan.md`, tags-registry — единственная «шина» между scope-ами. Никакой in-memory передачи через объекты — всё через git-файлы.
-- **LLM Gateway** — единая точка обращения к моделям; здесь живут retry/fallback (на 5xx прокси → fallback на другую модель), выбор модели по роли агента, эмиссия трейсов в локальный трейсинг.
-- **Workspace Manager** — единственный, кто пишет в git. Агенты получают «снапшот workspace» и возвращают diff/changeset; коммит и merge — централизованы.
+| Артефакт | Создаёт | Читает | Где живёт |
+|---|---|---|---|
+| `analytic/original_task.txt` | пользователь (через `business-analyst`) | `analytic-reviewer` | ветка инкремента |
+| `analytic/increment.md` | `business-analyst` | `/plan_w_team`, `analytic-reviewer`, `analyzer` | ветка инкремента |
+| `analytic/review-report.json` | `analytic-reviewer` | `business-analyst` (на доработку) | ветка инкремента |
+| `specs/<plan-name>.md` | `/plan_w_team` | `plan-reviewer`, `builder`, `validator`, `check_diff_scope.py` | ветка инкремента |
+| `test/runs/<ts>/logs.ndjson` | `/test_run` | `analyzer` | ветка инкремента |
+| `test/runs/<ts>/bug.md` | `analyzer` | `/plan_w_team` (повторный цикл) | ветка инкремента |
 
 ### F. Что точно требует прототипирования (риски)
 
-1. **Spring AI ↔ GigaChat-интеграция** — community-адаптер может потребовать доработки. Проверить раньше всего.
-2. **worktree per agent + per-agent reviewer** на JGit — самая горячая зона по сложности. Нужен спайк на 1 инкременте с 2–3 параллельными dev'ами.
-3. **DSL потоков (Analytic/Dev/Test).** Spring StateMachine vs самописное — выбрать после спайка.
-4. **HITL-gate в CLI** — UX чат-интервью и финальные gate'ы (как `ExitPlanMode` в Claude Code). Может потребовать богатого Spring Shell.
+1. **`/analyze` chat-interview flow** в Claude Code. Опыт показывает, что многошаговые диалоги внутри одной сессии Claude Code требуют аккуратного промпта (агент не должен сам себя останавливать). Спайк на 1 случае.
+2. **`validate_increment.py`** — формат `increment.md` должен быть строго определён, иначе валидатор не сможет надёжно проверять структуру.
+3. **`merge_gate`** — нет однозначного готового паттерна в Claude Code; решаем как simple `/merge` команду или как Stop-hook у `validator`.
+4. **`analyzer` + bug-routing**. Семантика «bug_in_test vs bug_in_product» требует доступа к product code + test code одновременно; нужно проверить, не превышает ли контекстное окно при больших падениях.
+5. **Корп-прокси для Anthropic API** — вне нашей конфигурации, но без неё всё не запустится. Зависимость от платформенной команды.
 
 ### G. Anti-scope (что НЕ делаем на старте)
 
-- Многопользовательский режим.
-- Веб-UI и бот.
-- Граф связей тегов (плоская таблица сначала).
-- Локальная БД метаданных.
-- Hot-fix flow при BUG (только полный цикл).
-- Тонкая оптимизация бюджета.
+- Собственный CLI / приложение / сервис (см. PIVOT.md).
+- Параллельные worktree per dev-agent (последовательная оркестрация TaskList достаточна).
+- Уровни тестирования выше integration (system / e2e / load) до явного запроса.
+- Selective regression в `/test_run`.
+- История падений analyzer'а с verdict-flip по порогам (пока — 1 прогон = 1 verdict без памяти).
+- Stop-loss по analyzer'у — на старте просто эскалация человеку.
+- Богатый UX HITL gate'ов — пока обычное «approve y/n» в чате.
+- Бюджет / SLA трекинг.
+- Многопользовательский режим / параллельные инкременты.
 
-### H. Решения по ранее открытым вопросам
+### H. Зафиксированные ранее решения, которые **остаются** в силе
 
-1. **Версионирование автотестов ↔ версий продукта** — через **git-теги** (одинаковый тег на оба репо).
-2. **Граница `system-analyst` vs `explorer`:**
-   - `system-analyst` — читает `increment.md` и пишет **чёткое ТЗ** (`tech_spec.md`) с API-спецификациями и техническими деталями.
-   - `explorer` — изучает существующий проект, чтобы потом **планировщик мог пометить тегами** задачи в Plan.md.
-   - Эти артефакты дополняют друг друга, не пересекаются.
-3. **Эскалация после 5 итераций — человек может:**
-   - дописать уточнение для агента и перезапустить;
-   - изменить `Plan.md` (отменить задачу, разбить её);
-   - вернуть процесс на этап планирования.
-4. **Observability — собственный упрощённый трейсинг** (от корп-наблюдаемости отказались). Локальные json/ndjson-файлы со span'ами; команда `ms trace <run-id>` для просмотра.
-5. **Retry / fallback политика на старте:** при **5xx от прокси** — fallback на другую модель. Остальные классы ошибок (rate-limit, timeout, parse-fail) — детализируем позже по факту инцидентов.
+| Тема | Решение | Источник |
+|---|---|---|
+| Целевые проекты | Java + Spring Boot микросервисы, ~десятки KLoC, greenfield | Блок 1 опроса |
+| Артефакты как контракты | Все артефакты — файлы в git, не БД | Блок 5 опроса |
+| HITL gate'ы | (a) approve increment, (b) approve plan, (c) approve merge | Блок 2–3 опроса |
+| Версионирование | 1 инкремент = 1 ветка | Блок 5 опроса |
+| Refs как human-curated knowledge | refs/ (бывший tags registry) | Блок 3 опроса |
+| Цель MVP | Один реально используемый бизнес-аналитиком проход Analytic → Dev → Test | Блок K5 калибровки |
+
+Изменилось: реализация (Java/Spring → Claude Code конфиг), LLM-стек (DeepSeek/GigaChat → Claude), CLI (`ms` → нет своего, всё через `claude`).

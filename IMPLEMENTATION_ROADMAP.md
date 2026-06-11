@@ -1,8 +1,9 @@
 # План внедрения MVP-0
 
-**Статус:** черновик. План на первый рабочий контур системы (MVP-0).
-**Дата:** 2026-06-04.
-**Парные документы:** [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md), [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md).
+**Статус:** v2, переписан 2026-06-11 после pivot на Claude Code backend.
+**Парные документы:** [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md), [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md), [`PIVOT.md`](./PIVOT.md).
+
+> Старый roadmap описывал 2-недельный спринт под Java/Spring + 3 workstream'а (A/B/C — платформа/Gateway/domain). Он устарел. Объём работы сильно сократился — upstream-конфиг `.claude/` закрывает ~80% Dev_scope.
 
 ---
 
@@ -11,188 +12,191 @@
 | Параметр | Значение |
 |---|---|
 | Срок MVP-0 | **2 недели (10 рабочих дней)** |
-| Команда | **2–3 человека** из команды пользователя |
-| Цель | **Реально используемый инструмент** — к концу 2-й недели бизнес-аналитик команды реально пишет осмысленный `increment.md` через `ms analyze`, далее проходит полный цикл Dev + Test |
+| Команда | **1–2 человека** (объём сжался после pivot'а) |
+| Цель | **Реально используемый инструмент** — к концу 2-й недели бизнес-аналитик команды реально пишет осмысленный `increment.md` через `/analyze`, далее проходит полный цикл Dev + Test на toy-сервисе |
 | Целевой проект | **Учебный «toy»-микросервис на Spring Boot**, специально сделанный под MVP |
-| LLM-доступ | DeepSeek + GigaChat **+ Claude через корп-прокси** — всё готово к старту |
-| Стек платформы | Java + Spring Boot + Spring Shell + Spring AI + JGit |
-| **Реализация Dev_scope** | **Claude Code** (CLI от Anthropic) + конфиг репо `a-simeshin/claude-code-hooks-mastery`. Лицензия и согласие подтверждены. |
+| Среда | **Claude Code CLI локально** + `uv` (для Python-хуков) |
+| LLM-доступ | **Claude через корп-прокси к Anthropic API** — должен быть готов к старту (см. риски) |
+| Что мы собираем | Не приложение, а **конфигурацию `.claude/`** для Claude Code. Никакого pom.xml / src/ / собственного CLI. |
+| Состояние upstream | Подтянуто в репо `ms-platform`. Готов к использованию as-is. |
 
 ---
 
-## 2. Учебный toy-микросервис
+## 2. Toy-микросервис
 
-Простой Spring Boot сервис, который имеет:
-- 2–3 REST endpoint'а (CRUD над одной сущностью + поиск).
-- Persistence-слой через Spring Data JPA + H2 in-memory (или PostgreSQL Testcontainers).
-- Базовая структура модулей (api / service / repo / model).
-- Уже существующий `README.md` и небольшой набор unit-тестов (≥ 60% coverage), чтобы выглядеть «нормально», а не «пустой шаблон».
+Простой Spring Boot сервис под греенфилд-инкременты. Нужен для прогона полного цикла.
 
-**Бизнес-инкремент-кейс MVP-0**: «добавить новый endpoint + новое поле к сущности + бизнес-валидацию».
+Минимум:
+- 2–3 REST endpoint'а (CRUD над одной сущностью + поиск),
+- Spring Data JPA + H2 (или Testcontainers Postgres),
+- структура `api / service / repo / model`,
+- стартовый набор unit-тестов (~60% coverage), краткий README.
 
-Создаётся в day 1 одним из разработчиков параллельно с инфра-задачами. **Это НЕ платформа, это объект, на котором мы её гоняем.**
+**Кейс инкремента для MVP-0:** «добавить новый endpoint + новое поле к сущности + бизнес-валидацию».
+
+Где живёт: **отдельный git-репо** (не внутри `ms-platform`), имя — на усмотрение пользователя (например, `ms-platform-toy`). `.claude/` ставится туда через `install.sh` нашего репозитория.
 
 ---
 
 ## 3. Состав MVP-0
 
-В MVP-0 входит **полный цикл** (Analytic → Dev → Test), но с упрощениями:
-
-| Компонент | Что входит в MVP-0 | Что отложено |
+| Компонент | Что входит | Что отложено |
 |---|---|---|
-| CLI `ms` | init / analyze / dev / test / status / trace (минимум) | Богатый UX, autocomplete, темы |
-| Analytic_scope | business-analyst, md-validator, analytic-reviewer, manual-validation-gate | Сложная проверка GWT-сценариев — упрощённая |
-| Dev_scope | Полностью через Claude Code + конфиг репо коллеги | Доработка JSpecify/Sonar — не входит, останавливаемся на наборе репо (Spotless / PMD / JaCoCo / Maven) |
-| Test_scope | **Тоже через Claude Code** (новая custom-команда для написания integration-тестов). Только уровень integration. Exec — упрощённый запуск через Maven. Analyzer — LLM | Уровни system / e2e / load — после MVP-0. Selective regression — после. История падений для verdict-flip — после. |
-| Tags-registry | Берём готовый `refs/` из репо коллеги (java-patterns + java-testing) | Свои теги добавляем по мере надобности |
-| Параллельность worktree | НЕТ (Claude Code сам по себе sequential в MVP) | Worktree-параллелизм — после MVP-0 (соответствует тому, как работает Claude Code) |
-| HITL gate'ы | Analytic gate + Dev merge gate — упрощённые подтверждения в CLI | Богатый diff-view, comments — после |
-| Observability | Локальный JSON-трейсинг (span на агента/hook/LLM) + `ms trace <run-id>` | Метрики и дашборды — после |
+| **Analytic_scope** (новый, наш) | `business-analyst.md`, `analytic-reviewer.md`, `commands/analyze.md`, `hooks/validators/validate_increment.py` | — (всё необходимое в MVP-0) |
+| **Dev_scope** (upstream as-is + наш HITL) | `/plan_w_team`, builder, plan-reviewer, validator, линтеры — БЕЗ ИЗМЕНЕНИЙ. Добавляем `commands/merge_gate.md`. | worktree-параллелизм, новые доменные refs (только если нужно) |
+| **Test_scope (lite)** | `commands/test_run.md`, `agents/analyzer.md` | system / e2e UI / load тесты, selective regression, история падений analyzer'а с verdict-flip |
+| **Refs** | upstream as-is (`java-patterns.md`, `java-testing.md`) | доменные refs (RAG/MCP/Liquibase) — только при явной необходимости |
+| **HITL gate'ы** | (a) approve `increment.md` в чате с заказчиком; (b) ExitPlanMode после `/plan_w_team`; (c) `merge_gate` перед коммитом | богатый diff-view, multi-line комментарии |
+| **Observability** | встроенный Claude Code trace; Stop-hook'и в логах | свой трейсинг / метрики / дашборды |
 
 ---
 
-## 4. Распределение работ
+## 4. Расписание по дням
 
-**Три workstream'а** (по одному на разработчика, если 3 человека; при 2 — A объединяется с B):
+Распределение работ — между 2 разработчиками. Если работает один — последовательно, общий срок может вырасти до 12–14 дней.
 
-| Поток | Содержание | Кто |
-|---|---|---|
-| **A. Платформа (CLI/State/Trace)** | Spring Boot + Spring Shell skeleton, state-файл инкремента, локальный трейсинг, CLI команды | dev A |
-| **B. LLM Gateway + Workspace** | Spring AI к DeepSeek / GigaChat / Claude (через прокси), retry/fallback, JGit (branch / commit / status / log) | dev B |
-| **C. Domain (Scopes & Toy-сервис)** | Toy-микросервис, агенты Analytic_scope (промпты, hooks), адаптеры Dev/Test через Claude Code | dev C |
-
-При двух разработчиках — A+B сливаются в один workstream «Платформа», C остаётся.
-
----
-
-## 5. Расписание по дням
-
-### Неделя 1 — фундамент + Analytic_scope
+### Неделя 1 — Analytic_scope + первое прохождение в Dev
 
 #### Day 1 — Setup
-- **A**: создание Spring Boot проекта, Spring Shell, базовая структура пакетов, `ms --version` запускается.
-- **B**: получение и проверка корп-прокси для DeepSeek / GigaChat / Claude (curl-пробники до каждой модели). Без интеграции с приложением — только проверка доступности.
-- **C**: создание toy-микросервиса (репо, basic CRUD endpoint, H2, unit-тесты, README).
+- **A** (или единственный исполнитель): убедиться что Claude Code установлен; пройти upstream `install.sh` локально; запустить `/plan_w_team` без аргументов на любом toy-проекте — должен открыться шаблон. Это smoke `.claude/` интеграции.
+- **B** (если есть): создать toy-микросервис в отдельном репо (CRUD + Spring Data + tests). Подключить к нему `.claude/` через `install.sh`.
 
-**Milestone day 1:** скелет CLI + подтверждённый доступ ко всем LLM + toy-микросервис.
+**Milestone Day 1:** Claude Code в репозитории toy-проекта запускает `/plan_w_team` без ошибок.
 
-#### Day 2 — LLM Gateway + State
-- **A**: state-файл инкремента (json) — текущая фаза, лимиты итераций, артефакты; команды `ms init <task>` (создаёт ветку и `original_task.txt`) и `ms status`.
-- **B**: LLM Gateway — Spring AI ChatClient'ы для DeepSeek и GigaChat; первичный retry/fallback (на 5xx).
-- **C**: каркас агентов Analytic_scope — описания, директория `.platform/agents/`, `.platform/skills/analytic.md`, шаблон `increment.md`.
+#### Day 2 — `validate_increment.py`
+- Написать Python-скрипт `validate_increment.py` (4 проверки из AGENTS_SPECIFICATION п. 4.1).
+- Тесты к нему — pytest по тестовым `increment.md` (валидный + 4 невалидных кейса под каждый чек).
+- Не зацеплять пока в Claude Code Stop-hook; запускать вручную для отладки.
 
-#### Day 3 — business-analyst + JGit
-- **A**: локальный трейсинг (span на LLM-вызов / hook / agent); запись в `traces/<run-id>.ndjson`; команда `ms trace <run-id>`.
-- **B**: JGit интеграция в Workspace Manager — create-branch, commit, status, diff.
-- **C**: реализация `business-analyst` — chat-interview через CLI, write `increment.md` в ветку инкремента.
+**Milestone Day 2:** `validate_increment.py` запускается, возвращает 0 / ≠ 0 + JSON-отчёт на тестовых вводных.
 
-#### Day 4 — md-validator + analytic-reviewer
-- **A**: интеграция CLI с Workspace Manager (где-то надо хранить state и артефакты).
-- **B**: Spring AI ChatClient для Claude через прокси (для Dev_scope позже); end-to-end проверка вызова Claude (через `ms exec-test --model claude` для отладки).
-- **C**: md-validator (Python скрипт), analytic-reviewer (LLM-агент), оба подключены к Workspace Manager.
+#### Day 3 — `business-analyst` агент
+- Положить `agents/business-analyst.md` из чернового промпта (AGENTS_SPECIFICATION п. 2.1).
+- Прогнать вручную: вызвать агента, сэмулировать заказчика; убедиться что записывает `analytic/increment.md` корректной структуры.
+- Тонкая полировка промпта по результатам.
 
-#### Day 5 — manual-validation-gate + smoke Analytic
-- **A** + **B** + **C** (объединение): manual-validation-gate в CLI, squash-on-approve коммитов, **end-to-end дрelle Analytic_scope** на toy-задаче. Smoke + bugfix.
+**Milestone Day 3:** в любом репо `business-analyst` пишет валидный `increment.md` (его прохождение `validate_increment.py` зелёное).
 
-**Milestone недели 1:** `ms analyze new "<задача>"` → chat-interview → `increment.md` → md-validator → analytic-reviewer → HITL approve → ветка готова к Dev. На toy-микросервисе.
+#### Day 4 — `analytic-reviewer` + `commands/analyze.md`
+- Положить `agents/analytic-reviewer.md` + `commands/analyze.md` (с подключением `validate_increment.py` как Stop-hook).
+- Прогнать `/analyze "<задача>"` end-to-end: chat-interview → write → validate → review → HITL approve.
+- На намеренно противоречивой задаче — проверить что `analytic-reviewer` ловит и возвращает `needs_revision`.
 
-### Неделя 2 — Dev (Claude Code) + Test (Claude Code) + полный цикл
+**Milestone Day 4:** `/analyze` end-to-end работает: validate → review → approve.
 
-#### Day 6 — Claude Code integration
-- **A**: команда `ms dev <increment-id>` — формирует контекст для Claude Code (передача increment.md + указание целевого репо), вызывает `claude` как subprocess, ловит exit и логи.
-- **B**: установка Claude Code локально, подключение конфига из репо коллеги (`install.sh`), верификация что `/plan_w_team` и `/smart_build` работают на toy-микросервисе вручную (без обёртки `ms`).
-- **C**: HITL merge-gate для Dev_scope в CLI (показ изменений после Claude Code, approve / reject).
+#### Day 5 — Переход в Dev (упор на готовое из upstream)
+- Никакого кода: на approved `increment.md` запустить `/plan_w_team` (готовая команда из upstream).
+- Пройти Test Infra Interview, дать plan-reviewer'у сделать критику, выбрать ExitPlanMode (HITL approve плана).
+- Запустить builder; параллельно работают линтеры через PostToolUse hook.
+- Дойти до момента «`validator` вынес PASS».
 
-#### Day 7 — Dev_scope end-to-end + Docker build
-- **A**: Docker-build hook после approve merge — простой shell-скрипт + verify image tag.
-- **B**: интеграция выхода Claude Code обратно в нашу ветку инкремента, корректный squash на этапе merge-gate.
-- **C**: end-to-end smoke Analytic → Dev на toy-микросервисе. Bugfix.
+**Milestone недели 1:** `/analyze` → `/plan_w_team` → builder → validator(PASS) на toy-микросервисе. Code+tests лежат в ветке `increment/<id>`.
 
-**Milestone day 7:** `ms analyze` → `ms dev` → Docker-образ готов. Полный путь до сборки на toy.
+### Неделя 2 — `merge_gate`, Test_scope (lite), полный цикл и демо
 
-#### Day 8 — Test_scope (упрощённый): write tests
-- **A**: команда `ms test new <increment-id>` — отдельный вызов Claude Code с новой custom command (например, `/write_integration_tests`) или с системным промптом «теперь напиши integration-тесты по этому increment.md».
-- **B**: отдельный test-репозиторий, basic git tag matching (создание тега `inc-<id>` в обоих репо при approve в Test_scope).
-- **C**: подготовка conf'ига Claude Code для test-режима (отдельный `.claude/commands/write_integration_tests.md`, или вариант системного промпта внутри `ms`).
+#### Day 6 — `commands/merge_gate.md`
+- Реализовать `merge_gate` как команду (без своих hook'ов).
+- Сценарии: approve → commit + tag; reject → сохранить `rejection_comment.txt` + сообщить о возможности перезапустить `/plan_w_team`.
 
-#### Day 9 — Test_scope: exec + analyzer
-- **A**: команда `ms test run <increment-id>` — запуск `mvn verify` (или `mvn integration-test`) против собранного Docker-образа + Testcontainers. Сбор логов в `test/runs/<timestamp>/`.
-- **B**: упрощённый analyzer — LLM-агент, читает логи + increment.md + список упавших тестов → выносит verdict. На MVP-0 без счётчика повторов и history.
-- **C**: BUG-маршрут в Dev_scope — если analyzer возвращает `bug_in_product`, формируется `bug.md` и запускается `ms dev` повторно с этим артефактом как доп-контекстом.
+**Milestone Day 6:** `merge_gate` коммитит инкремент в основную ветку toy-репо.
 
-#### Day 10 — End-to-end + полировка + демо
-- **All**: полный прогон Analytic → Dev → ручной деплой toy-образа → Test → (опционально) BUG → Dev.
-- **All**: bugfix, README с короткой инструкцией «как запустить», подготовка демо-сценария.
+#### Day 7 — `analyzer.md` агент
+- Положить `agents/analyzer.md` (черновой промпт).
+- Подготовить тестовые `test/runs/<ts>/` фикстуры (logs + junit) — намеренно два сценария: «баг в тесте» и «баг в продукте» (где продукт нарушает `increment.md`).
+- Прогнать `analyzer` вручную; убедиться что verdict'ы корректные и `bug.md` пишется только во втором случае.
 
-**Milestone недели 2 (= MVP-0):** один реальный сценарий полного цикла на toy-микросервисе работает end-to-end. Бизнес-аналитик команды способен пройти Analytic_scope и получить `increment.md`.
+**Milestone Day 7:** `analyzer` правильно различает `bug_in_test` и `bug_in_product` на двух фикстурах.
 
----
+#### Day 8 — `commands/test_run.md`
+- Реализовать `test_run` как команду.
+- На уже инкрементированном toy-сервисе запустить `/test_run` — он должен поднять declared runner из плана, при зелёных тестах сообщить успех, при намеренном падении (пользователь руками сломает один тест) — позвать analyzer.
 
-## 6. Definition of Done — MVP-0
+**Milestone Day 8:** `/test_run` запускает реальный `mvn verify` и при провале запускает analyzer.
 
-Конкретные критерии готовности (binary checks):
+#### Day 9 — End-to-end + полировка
+- **Реальный сквозной прогон**: бизнес-аналитик-человек (можно сам разработчик в этой роли) проходит `/analyze` → ExitPlanMode → `/merge_gate` → ручной деплой → `/test_run`.
+- Намеренно сломать продукт (изменить логику валидации в одном из endpoint'ов) — убедиться, что `/test_run` → `analyzer` → `bug.md` → новый `/plan_w_team` с этим `bug.md` как контекстом → builder фиксит.
+- Полировка промптов агентов по результатам.
 
-- [ ] `ms init`, `ms analyze`, `ms dev`, `ms test run`, `ms status`, `ms trace` — все команды существуют и не падают на стандартных входах.
-- [ ] На toy-микросервисе пройден **полный цикл от заявки до Docker-образа и зелёных integration-тестов** хотя бы для одного бизнес-сценария.
-- [ ] `increment.md` на этом сценарии написан реальным бизнес-аналитиком через chat-interview, без правки руками в редакторе.
-- [ ] При намеренной поломке кода (например, dev-агент вносит баг или мы вручную ломаем продукт перед `ms test run`) — analyzer корректно выносит `bug_in_product`, формируется `bug.md`, повторный `ms dev` принимает его как входной артефакт.
-- [ ] Все артефакты (`increment.md`, `tech_spec.md`, `Plan.md`, `dispatch-manifest.json`, `bug.md`) лежат в правильных директориях ветки инкремента.
-- [ ] Локальный трейсинг работает: `ms trace <run-id>` показывает порядок вызовов агентов / hook'ов / LLM с длительностью.
-- [ ] README инструмента и toy-микросервиса описывают, как запустить с нуля.
+**Milestone Day 9:** полный bug-routing loop работает.
 
----
+#### Day 10 — Демо + документация
+- Записать READMEsection «как запустить»: установка Claude Code, `install.sh`, последовательность команд.
+- Обновить `AGENTS_SPECIFICATION.md` по факту реализации (если черновики промптов сильно изменились).
+- Прогнать демо-сценарий для коллег.
 
-## 7. Что НЕ входит в MVP-0 (anti-scope)
-
-Подтверждаем явно, чтобы не было ползучего scope:
-
-- Worktree-параллелизм dev-агентов (Claude Code пока работает sequentially).
-- Уровни тестирования выше integration (system, e2e/UI, load).
-- Selective regression в `exec`.
-- История падений analyzer'а с verdict-flip.
-- Stop-loss analyzer'а (просто эскалируем после 5 итераций как в Dev).
-- JSpecify, Sonar quality gate (только то, что есть в репо коллеги).
-- Богатый UX manual-gate'ов (diff view, multi-line comments).
-- Бюджет / SLA трекинг.
-- Многопользовательский режим / web UI / IDE-плагин.
-- Параллельные инкременты.
-- Авто-наполнение tags-registry — пользуемся тем, что в `refs/` репо коллеги.
+**Milestone Week 2 = MVP-0:** один сценарий полного цикла Analytic → Dev → Test → BUG → Dev на toy-микросервисе работает end-to-end силами реального бизнес-аналитика команды.
 
 ---
 
-## 8. Технические риски и митигации
+## 5. Definition of Done — MVP-0
+
+Конкретные бинарные критерии:
+
+- [ ] `install.sh` устанавливает `.claude/` в toy-репо без ошибок.
+- [ ] `/analyze "<задача>"` запускает chat-interview, записывает `analytic/increment.md` валидной структуры, проходит `validate_increment.py` зелёным и `analytic-reviewer` с verdict `ok`, после approve — сообщает о готовности к `/plan_w_team`.
+- [ ] `/plan_w_team` (upstream) принимает контекст из `increment.md`, проходит `plan-reviewer`, проходит ExitPlanMode approve, далее builder + validator завершаются PASS на toy.
+- [ ] `/merge_gate` коммитит инкремент.
+- [ ] `/test_run` запускает declared runner; на намеренной поломке продукта вызывает `analyzer`, который пишет `bug.md`.
+- [ ] `/plan_w_team` повторно запущенный с `bug.md` как контекстом доводит фикс до PASS.
+- [ ] Реальный сотрудник (не разработчик из команды MVP) использует `/analyze` хотя бы для одного реального бизнес-кейса и получает осмысленный `increment.md` без правок руками.
+- [ ] `README.md` содержит секцию «Запуск с нуля» с проверенными командами.
+
+---
+
+## 6. Anti-scope (что НЕ делаем в MVP-0)
+
+Чтобы не было ползучего расширения:
+
+- Параллельный запуск нескольких builder'ов в worktree.
+- Уровни тестов выше integration (system / e2e / load).
+- Selective regression в `/test_run` — всегда полный прогон.
+- История падений analyzer'а с verdict-flip и stop-loss.
+- Богатый UX HITL gate'ов (diff view, multi-line comments) — обычные текстовые ответы.
+- Бюджет / SLA / cost trace.
+- Свой LLM Gateway / CLI / сервис / БД (см. PIVOT.md).
+- Корп-доменные refs «про запас» — добавляем только при появлении явной необходимости.
+- Многопользовательский / параллельные инкременты.
+- Свой mechanism для приёма сообщений из мессенджеров.
+
+---
+
+## 7. Технические риски и митигации
 
 | Риск | Вероятность | Митигация |
 |---|---|---|
-| Spring AI ↔ GigaChat — community-адаптер криво работает | средняя | Дать день 2 на интеграцию; если не получается — временно fallback на DeepSeek для всех ролей Analytic |
-| Claude Code не работает через корп-прокси с Anthropic | низкая (пользователь подтвердил доступ) | Спайк day 1 (curl до anthropic.com через прокси); если не работает — экстренный план: пишем builder/plan-reviewer на Spring AI ⇒ MVP-0 урезается до Analytic + минимального custom Dev |
-| Учебный toy-микросервис «слишком тривиален» — Claude Code не показывает ценности | средняя | Сразу делать его близким к реальному — JPA, валидации, layered architecture, базовые тесты |
-| Test_scope упрощение «всё через Claude Code» не даёт качественных integration-тестов | средняя | Если не выходит — на MVP-0 разрешаем мануальные правки/доводку тестов; фиксируем как технический долг |
-| Bug.md → повторный Dev — может зациклиться без histo | низкая (контролируемая) | Жёсткий лимит на 1 BUG-итерацию в MVP-0; дальнейшее — эскалация |
-| Конфликты между `.claude/` репо коллеги и наших агентов | низкая | Чёткое разделение: `.platform/` — наше; `.claude/` — Claude Code; не пересекается |
+| Claude Code не работает через корп-прокси к Anthropic | низкая (если уже работает у коллег) | Day 1 — спайк: убедиться что прокси настроен. Если нет — блокер; ждать платформенную команду. |
+| `/analyze` chat-interview сваливается из-за многошаговой природы | средняя | Day 2–3 — отдельный спайк. Если не получается одним агентом — разбить на subagent calls внутри одной команды. |
+| `validate_increment.py` слишком жёстко — отвергает осмысленные интервью | средняя | Начинаем с минимальных проверок; затем по факту добавляем строгости. |
+| `analyzer` контекстное окно не вмещает (продукт + тесты + логи + спека) | средняя | Использовать Serena MCP для фокусной навигации, не загружать всё в контекст. |
+| Toy-микросервис слишком тривиален — pipeline не показывает ценности | средняя | Сразу делать close-to-real: JPA + валидации + layered architecture + базовые тесты. |
+| Конфликт между `.claude/` upstream-а и нашими новыми файлами | низкая | Наши файлы — отдельные имена (`business-analyst.md` ≠ `team/builder.md`); конфликтов не должно быть. |
 
 ---
 
-## 9. После MVP-0 — следующие 2 итерации
+## 8. После MVP-0 — естественные следующие итерации
 
-**MVP-1 (≈ 2–3 недели после MVP-0): полнота функциональности**
-- Worktree-параллелизм dev-агентов.
-- JSpecify, Sonar quality gate.
+**MVP-1 (~2–3 недели после MVP-0): полнота функциональности**
 - Уровни тестирования system + e2e.
-- Selective regression и история падений analyzer'а.
-- Реальная (не toy) задача на одном из микросервисов команды.
+- Selective regression в `/test_run` (только тесты, релевантные изменённым файлам).
+- История падений `analyzer` + verdict-flip после ≥ 2 повторов `bug_in_test`.
+- Доменные refs первой волны (RAG-конвенции, MCP-конвенции, корп-Spring-стиль).
+- Реальный (не toy) микросервис.
 
-**MVP-2 (≈ 1 месяц после MVP-1): постепенная замена Claude Code на свой стек**
-- Перенос builder/plan-reviewer на Spring AI агенты (наш план B из развилки).
-- Сохранение конфигов скиллов/хуков как они есть (markdown-ы).
-- Возможность смешанного режима: часть агентов — Claude Code, часть — наши.
+**MVP-2 (~1 месяц после MVP-1): масштабирование**
+- Worktree-параллелизм (если станет узким местом).
+- Параллельные инкременты (несколько веток в работе).
+- Дашборд состояний пайплайнов.
+
+**MVP-3 (по запросу платформенной команды):**
+- Адаптер под корп-LLM-прокси (GigaChat / DeepSeek) — если решат, что Anthropic-only недопустимо в проде.
 
 ---
 
-## 10. Открытые вопросы по плану
+## 9. Открытые вопросы по плану
 
-1. **Кто берёт какой workstream.** Конкретное распределение между 2–3 разработчиками — твоё решение, мы оперируем абстрактными A/B/C.
-2. **Где живёт toy-микросервис.** Отдельный репо или директория в этом же `multiagent-system`? Предложу — **отдельный репо** `toy-product` (чище отделение «платформа vs объект»).
-3. **Где живёт test-репо для MVP-0.** Аналогично — отдельный `toy-product-tests`.
-4. **Готовность стенда для `ms test run`.** Под Testcontainers ничего не нужно, но если будут load/e2e (после MVP-0) — потребуется отдельный стенд.
-5. **UX команд эскалации после 5 итераций** (старый Q6 Dev_scope) — на MVP-0 откладываем; в эскалацию просто выходим, человек правит руками.
+1. **Кто исполняет.** В команде 1 или 2 человека работают над MVP-0? Срок зависит.
+2. **Toy-микросервис.** Создаём с нуля под MVP, или есть подходящий учебный сервис в команде, который можно адаптировать?
+3. **Корп-прокси к Anthropic.** Готов ли уже? Если нет — сначала фиксим этот блокер, иначе MVP не запустится.
+4. **Реальный бизнес-аналитик для финального DoD.** Кто из команды готов взять `/analyze` для своего реального инкремента? Желательно понять имя заранее — это влияет на формулировки `business-analyst.md`.
+5. **Test-репо или общий.** Автотесты живут вместе с продуктом (минимальный путь) или в отдельном репо (как в старом дизайне)? Рекомендация: вместе с продуктом для MVP-0; отдельный — после.

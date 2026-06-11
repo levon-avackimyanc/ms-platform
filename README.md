@@ -4,7 +4,7 @@
 
 > **Подход:** Claude Code как backend. Вся работа агентов — через стандартные примитивы (skills, hooks, agents, commands, MCP, refs). Никакого собственного приложения / CLI / LLM-gateway.
 
-Подробности по предметной модели — в дизайн-документах (см. ниже секцию ⚠️ **Outdated**).
+Подробности по предметной модели — в дизайн-документах (см. [ниже](#дизайн-документы)).
 
 ---
 
@@ -61,12 +61,9 @@ ty.toml         # type-checker для хуков
 
 ---
 
-## ⚠️ Outdated дизайн-документы
+## Дизайн-документы
 
-Документы ниже были написаны под Spring Boot/Java реализацию. После pivot'а на Claude Code-only они частично устарели — содержимое о scope-ах (Analytic / Dev / Test) и потоках агентов остаётся актуальным, всё про Spring/JGit/LLM Gateway — нет.
-
-- [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md)
-- [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md)
-- [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md)
-
-Решение о pivot'е и что осталось актуальным — см. [`PIVOT.md`](./PIVOT.md).
+- [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md) — архитектура целиком (v2 от 2026-06-11).
+- [`AGENTS_SPECIFICATION.md`](./AGENTS_SPECIFICATION.md) — каталог агентов, команд и хуков; черновые промпты новых агентов.
+- [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md) — план MVP-0 на 2 недели.
+- [`PIVOT.md`](./PIVOT.md) — журнал решения о pivot'е на Claude Code backend и что осталось актуальным из предыдущих обсуждений.
