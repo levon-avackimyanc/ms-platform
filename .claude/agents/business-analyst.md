@@ -4,6 +4,15 @@ description: Старший бизнес-аналитик. Проводит chat
 model: sonnet
 color: green
 tools: Read, Write, Edit, Glob, Grep
+hooks:
+  PostToolUse:
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: >-
+            uv run --script $CLAUDE_PROJECT_DIR/.claude/hooks/validators/validate_increment.py
+            --file analytic/increment.md
+            --config $CLAUDE_PROJECT_DIR/.claude/config/increment_template.yaml
 ---
 
 # Business Analyst

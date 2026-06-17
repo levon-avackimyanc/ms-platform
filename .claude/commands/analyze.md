@@ -3,14 +3,6 @@ description: Старт Analytic_scope. Запускает chat-interview с з�
 argument-hint: "[краткая формулировка задачи от заказчика]"
 model: sonnet
 disallowed-tools: EnterPlanMode
-hooks:
-  Stop:
-    - hooks:
-        - type: command
-          command: >-
-            uv run --script $CLAUDE_PROJECT_DIR/.claude/hooks/validators/validate_increment.py
-            --file analytic/increment.md
-            --config $CLAUDE_PROJECT_DIR/.claude/config/increment_template.yaml
 ---
 
 # /analyze
@@ -48,13 +40,24 @@ hooks:
 ### Шаг 2 — делегировать chat-interview
 
 Запусти субагента **`business-analyst`** через Task-инструмент.
-В описании задачи для него передай:
+В описании задачи для него передай ровно следующее (можешь подставить
+конкретные пути, но **блокирующее требование** — слово в слово):
 
-- путь к `analytic/original_task.txt`,
-- путь к `.claude/config/increment_template.yaml` (его агент должен
-  прочитать сам как источник правды),
-- инструкцию: «проведи chat-interview с заказчиком и запиши
-  `analytic/increment.md`».
+```
+Прочитай `.claude/config/increment_template.yaml` и
+`analytic/original_task.txt`. Проведи chat-interview с заказчиком по
+секциям шаблона и запиши `analytic/increment.md`.
+
+БЛОКИРУЮЩЕЕ ТРЕБОВАНИЕ: перед `Write` для `analytic/increment.md`
+ОБЯЗАТЕЛЬНО:
+  1. покажи заказчику план секций (одна фраза-аннотация на каждую);
+  2. спроси буквально «Всё ли мы учли? Готовы записывать?»;
+  3. дождись явного утвердительного ответа («да», «yes», «одобряю»,
+     «всё правильно», «пиши», «записывай»).
+Только после явного «да» делай Write. Если ответ заказчика на финальный
+конфирм неоднозначный — переспроси с явным выбором «yes / нет, давай
+уточним». Это HITL-точка, её пропуск обесценивает интервью.
+```
 
 Пока агент работает — **ты ничего не пишешь в чате**. Все вопросы заказчику
 формулирует `business-analyst`; ты лишь проксируешь сообщения заказчика
@@ -62,31 +65,29 @@ hooks:
 
 ### Шаг 3 — структурная валидация (автоматическая; ты её НЕ запускаешь сам)
 
-После того как `business-analyst` сделает `Write analytic/increment.md`,
-Claude Code сам запустит Stop-hook этой команды — он прописан в её
-frontmatter и вызывает `validate_increment.py`. Ты увидишь его JSON-вывод
-в чате. Stop-hook также сработает на промежуточных Stop event'ах
-(например, после ответа субагента до Write); если файла ещё нет, валидатор
-эмитит `{"result":"continue","status":"skipped"}` — это нормально, ты
-проходишь дальше по workflow.
+`business-analyst` сконфигурирован с `PostToolUse` хуком на `Write|Edit` —
+он автоматически запускает `validate_increment.py` сразу после любого
+Write/Edit, который сделал субагент. Ты увидишь JSON-вывод хука в чате
+**сразу после Write** субагента, ещё до его возврата управления.
 
-**ЗАПРЕЩЕНО ручное дублирование:** не запускай `validate_increment.py` сам
-через `Bash`, ни через `python3`, ни через `uv run --script`. Stop-hook
-делает это за тебя. Дубликаты дают шум в логах и могут мешать друг другу.
+**ЗАПРЕЩЕНО ручное дублирование:** не запускай `validate_increment.py`
+сам — ни через `Bash`, ни через `python3`, ни через `uv run --script`.
+Хук делает это за тебя.
 
-Возможные исходы (читай результат hook'а, не вызывай его сам):
+Возможные исходы хука (читай результат, не вызывай хук сам):
 
-- **`result: continue`** + `status: ok` — структура ок, файл есть, переходи к Шагу 4.
-- **`result: continue`** + `status: skipped` — файла ещё нет; ждёшь Write от `business-analyst`.
+- **`result: continue`** + `status: ok` — структура `increment.md` прошла, переходи к Шагу 4.
+- **`result: continue`** + `status: skipped` — `Write/Edit` был не по `increment.md`
+  (например, по `original_task.txt`); это норма, продолжай workflow.
 - **`result: block`** — структура не прошла; в `reason` конкретные failed checks.
   Передай управление обратно `business-analyst`-субагенту с этим JSON как
   контекстом. Цикл идёт до тех пор, пока хук не вернёт `ok`,
   **в пределах `MAX_ITERATIONS`** общего лимита.
 
-Если Stop-hook **не сработал** в течение разумного времени после Write —
-**не обходи его руками**. Сообщи пользователю: «Stop-hook не запустился,
-проверьте `hooks:` в frontmatter `commands/analyze.md`». Это сигнал бага
-конфигурации, а не повод запускать валидатор через Bash.
+Если хук **не сработал** в течение разумного времени после Write — **не
+обходи его руками**. Сообщи пользователю: «PostToolUse-хук не
+запустился, проверьте `hooks:` в frontmatter `.claude/agents/business-analyst.md`».
+Это сигнал бага конфигурации, а не повод запускать валидатор через Bash.
 
 ### Шаг 4 — семантическое ревью
 
