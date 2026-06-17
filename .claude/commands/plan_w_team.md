@@ -39,8 +39,9 @@ Create a detailed implementation plan based on the user's requirements provided 
 
 ## Variables
 
-USER_PROMPT: $1
+USER_PROMPT: $1 - (Optional if INCREMENT_FILE exists) Free-text task from the user. When `analytic/increment.md` is present, USER_PROMPT is treated as an optional *refinement* on top of the increment, not the primary input.
 ORCHESTRATION_PROMPT: $2 - (Optional) Guidance for team assembly, task structure, and execution strategy
+INCREMENT_FILE: `analytic/increment.md` - The business increment produced by `/analyze`. When present, this is the **primary planning input**. Its companions `analytic/original_task.txt` and `analytic/review-report.json` give context.
 PLAN_OUTPUT_DIRECTORY: `specs/`
 TEAM_MEMBERS: `.claude/agents/team/*.md`
 GENERAL_PURPOSE_AGENT: `general-purpose`
@@ -48,7 +49,11 @@ GENERAL_PURPOSE_AGENT: `general-purpose`
 ## Instructions
 
 - **PLANNING ONLY**: Do NOT build, write code, or deploy agents. Your only output is a plan document saved to `PLAN_OUTPUT_DIRECTORY`.
-- If no `USER_PROMPT` is provided, stop and ask the user to provide it.
+- **Resolve the planning input first (Analytic → Dev bridge):**
+  - If `INCREMENT_FILE` (`analytic/increment.md`) exists → it is the **primary input**. Read it in full, plus `analytic/original_task.txt` (the customer's verbatim ask) and `analytic/review-report.json` (the analytic verdict) for context. A `USER_PROMPT`, if also given, is an additional refinement layered on top — never a replacement for the increment.
+  - If `INCREMENT_FILE` does NOT exist and `USER_PROMPT` is provided → plan from `USER_PROMPT` as before (direct dev task, no analytic phase).
+  - If neither exists → stop and ask the user to either run `/analyze` first or provide a `USER_PROMPT`.
+- The increment is a **business** spec (goals, FR/NFR, Given-When-Then, acceptance). Your job is the **technical** decomposition: map its acceptance criteria onto concrete tasks, files, and the test pyramid. Do not lose any acceptance criterion — every one must trace to at least one task.
 - If `ORCHESTRATION_PROMPT` is provided, use it to guide team composition, task granularity, dependency structure, and parallel/sequential decisions.
 - Carefully analyze the user's requirements provided in the USER_PROMPT variable
 - Determine the task type (chore|feature|refactor|fix|enhancement) and complexity (simple|medium|complex)
@@ -285,7 +290,8 @@ Monitor({ file_path: "<output_file>", pattern: "..." })
 
 IMPORTANT: **PLANNING ONLY** - Do not execute, build, or deploy. Output is a plan document.
 
-1. Analyze Requirements - Parse the USER_PROMPT to understand the core problem and desired outcome. If Serena MCP tools are available, call `read_memory` and `list_memories` to check for existing knowledge about related features or past decisions.
+0. Resolve Input - Check whether `analytic/increment.md` exists (`ls analytic/increment.md`). If it does, read `analytic/increment.md`, `analytic/original_task.txt`, and `analytic/review-report.json`, and treat the increment as the primary requirement source per the Instructions above. If it does not, fall back to `USER_PROMPT`. State in one line which input mode you are in before proceeding.
+1. Analyze Requirements - Parse the resolved input (increment + optional USER_PROMPT, or USER_PROMPT alone) to understand the core problem and desired outcome. When planning from an increment, extract its **acceptance criteria** into an explicit checklist — each must map to a task later (Step 9). If Serena MCP tools are available, call `read_memory` and `list_memories` to check for existing knowledge about related features or past decisions.
 2. **Explore OpenSpec (if available)** — Check if OpenSpec is initialized by running:
    ```bash
    openspec list --specs --json 2>/dev/null
