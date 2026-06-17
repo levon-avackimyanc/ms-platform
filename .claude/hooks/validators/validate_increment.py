@@ -28,16 +28,18 @@ Checks performed:
                                     >= 1 numbered list item
 
 Exit codes:
-- 0: all checks passed
-- 1: one or more checks failed (or file missing)
-- 0 on unexpected validator errors (do not block the user on bugs)
+- 0: all checks passed OR file is not present yet (Stop-hooks fire on every
+     subagent stop, including ones that happen before Write — we don't want
+     to block on "file not found").
+- 1: one or more structural checks failed (the file exists but is broken).
+- 0 on unexpected validator errors (do not block the user on bugs).
 
 Output (stdout, JSON):
 {
   "result":  "continue" | "block",      # for Claude Code Stop hook
   "message": "...",                     # when result == continue
   "reason":  "...",                     # when result == block (action-oriented)
-  "status":  "ok" | "fail",             # contract field (used by pytest)
+  "status":  "ok" | "fail" | "skipped", # contract field (used by pytest)
   "checks":  [{name, passed, details}, ...]
 }
 
@@ -551,28 +553,24 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if not args.file.exists():
-            reason = (
-                f"VALIDATION FAILED: file {args.file} not found.\n\n"
-                "ACTION REQUIRED: Use the Write tool to create "
-                f"{args.file} with the required sections."
-            )
+            # Stop-hooks fire on every subagent stop in /analyze, including
+            # ones that occur BEFORE business-analyst has written the file.
+            # In that situation we must not block the flow — there is simply
+            # nothing to validate yet. Emit `continue` and exit 0.
             _emit(
                 {
-                    "result": "block",
-                    "reason": reason,
-                    "status": "fail",
-                    "checks": [
-                        {
-                            "name": "file_exists",
-                            "passed": False,
-                            "details": f"file not found: {args.file}",
-                        }
-                    ],
+                    "result": "continue",
+                    "message": (
+                        f"{args.file} not present yet — nothing to validate; "
+                        "this is normal for intermediate Stop events."
+                    ),
+                    "status": "skipped",
+                    "checks": [],
                 },
                 pretty,
             )
-            logger.warning("FAIL: file not found: %s", args.file)
-            return 1
+            logger.info("SKIP: file not present yet: %s", args.file)
+            return 0
 
         try:
             content = args.file.read_text(encoding="utf-8")

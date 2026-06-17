@@ -60,19 +60,33 @@ hooks:
 формулирует `business-analyst`; ты лишь проксируешь сообщения заказчика
 ему обратно.
 
-### Шаг 3 — структурная валидация (автоматическая)
+### Шаг 3 — структурная валидация (автоматическая; ты её НЕ запускаешь сам)
 
-Когда `business-analyst` завершит `Write analytic/increment.md`, сработает
-`Stop`-hook этой команды: `validate_increment.py --file analytic/increment.md
---config .claude/config/increment_template.yaml`.
+После того как `business-analyst` сделает `Write analytic/increment.md`,
+Claude Code сам запустит Stop-hook этой команды — он прописан в её
+frontmatter и вызывает `validate_increment.py`. Ты увидишь его JSON-вывод
+в чате. Stop-hook также сработает на промежуточных Stop event'ах
+(например, после ответа субагента до Write); если файла ещё нет, валидатор
+эмитит `{"result":"continue","status":"skipped"}` — это нормально, ты
+проходишь дальше по workflow.
 
-Возможные исходы:
+**ЗАПРЕЩЕНО ручное дублирование:** не запускай `validate_increment.py` сам
+через `Bash`, ни через `python3`, ни через `uv run --script`. Stop-hook
+делает это за тебя. Дубликаты дают шум в логах и могут мешать друг другу.
 
-- **`result: continue`** — структура ок, переходи к Шагу 4.
-- **`result: block`** — структура не прошла; в `reason` будут конкретные
-  failed checks. Передай управление обратно `business-analyst` (через
-  субагент-вызов) с этим JSON как контекстом. Цикл идёт до тех пор, пока
-  валидатор не вернёт `ok`, **в пределах `MAX_ITERATIONS`** общего лимита.
+Возможные исходы (читай результат hook'а, не вызывай его сам):
+
+- **`result: continue`** + `status: ok` — структура ок, файл есть, переходи к Шагу 4.
+- **`result: continue`** + `status: skipped` — файла ещё нет; ждёшь Write от `business-analyst`.
+- **`result: block`** — структура не прошла; в `reason` конкретные failed checks.
+  Передай управление обратно `business-analyst`-субагенту с этим JSON как
+  контекстом. Цикл идёт до тех пор, пока хук не вернёт `ok`,
+  **в пределах `MAX_ITERATIONS`** общего лимита.
+
+Если Stop-hook **не сработал** в течение разумного времени после Write —
+**не обходи его руками**. Сообщи пользователю: «Stop-hook не запустился,
+проверьте `hooks:` в frontmatter `commands/analyze.md`». Это сигнал бага
+конфигурации, а не повод запускать валидатор через Bash.
 
 ### Шаг 4 — семантическое ревью
 

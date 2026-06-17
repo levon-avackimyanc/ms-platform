@@ -347,8 +347,12 @@ def test_cli_smoke_returns_ok_for_valid_file(tmp_path: Path) -> None:
     assert output["result"] == "continue"
 
 
-def test_cli_smoke_returns_fail_for_missing_file(tmp_path: Path) -> None:
-    """When the target file is missing the script must exit 1 with status=fail."""
+def test_cli_smoke_returns_skipped_for_missing_file(tmp_path: Path) -> None:
+    """
+    Missing target file is NOT a failure — Stop-hooks fire on every subagent
+    stop in /analyze, including ones before Write. The validator must emit
+    `continue` so the flow is not blocked while the file isn't there yet.
+    """
     missing = tmp_path / "does_not_exist.md"
 
     result = subprocess.run(
@@ -358,10 +362,11 @@ def test_cli_smoke_returns_fail_for_missing_file(tmp_path: Path) -> None:
         timeout=60,
     )
 
-    assert result.returncode == 1
+    assert result.returncode == 0
     output = json.loads(result.stdout)
-    assert output["status"] == "fail"
-    assert output["result"] == "block"
+    assert output["status"] == "skipped"
+    assert output["result"] == "continue"
+    assert output["checks"] == []
 
 
 def test_cli_smoke_with_explicit_config(tmp_path: Path) -> None:
