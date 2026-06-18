@@ -103,6 +103,9 @@ coverage/
 .mcp.json
 .claude/data/
 
+# ---------- Analytic scope working artifacts ----------
+analytic/
+
 # ---------- Misc ----------
 *.db
 *.sqlite

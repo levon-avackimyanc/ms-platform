@@ -1,5 +1,5 @@
 ---
-allowed-tools: Task, Read, Bash, Write, Edit, Glob, Grep
+allowed-tools: Agent, Read, Bash, Write, Edit, Glob, Grep
 description: Smart builder with semantic context routing - loads only relevant sections
 argument-hint: [task description]
 ---
@@ -18,7 +18,7 @@ If `$ARGUMENTS` ends with `.md` and the file exists in `specs/`, this is a **pla
 ```bash
 openspec list --changes --json 2>/dev/null
 ```
-Look for a change matching the plan filename (kebab-case). If found, note the change name — you will update its `tasks.md` incrementally as builders complete tasks (see Step 4).
+Look for a change matching the plan filename (kebab-case). If found, note the change name — you will update its `tasks.md` incrementally as the Dev scope agents (developer / unit-tester / code-reviewer) complete tasks (see Step 4).
 
 ### Step 1: Route Task to Sections
 
@@ -69,7 +69,7 @@ Use this context to implement the task following the patterns.
 
 This step runs **incrementally throughout plan execution**, not as a batch at the end.
 
-**After each builder completes a task:**
+**After each agent (developer / unit-tester / code-reviewer) completes a task:**
 1. Find the matching task in `openspec/changes/<change-name>/tasks.md` by task name or description
 2. Mark its checkbox as `[x]` immediately using Edit tool
 3. This enables real-time progress tracking via `openspec view`
@@ -88,10 +88,10 @@ If no OpenSpec change was found in Step 0, skip this step silently.
 
 ### Step 4.5: Verify Test Layer Realism (post-build)
 
-Run **once** after the per-layer test tasks (`unit-tests`, `integration-tests`, optional `e2e-tests`) complete and before the final `validate-all` task. Confirms that what the team actually built matches the plan's `## Test Infrastructure (User-Declared)` contract:
+Run **once** after the `unit-tests` task completes and before the `code-review` / `validate-all` tasks. Confirms that what the team actually built matches the plan's `## Test Infrastructure (User-Declared)` contract. In a Dev plan the only non-Skipped layer is the **Unit Layer** (Integration/E2E are marked `Skipped — owned by Test scope`); the hook is generic and simply checks whatever layers are non-Skipped:
 
-- For each non-Skipped layer block: `Files glob` resolves to ≥1 file; `Infra signature` regex matches in every resolved file; each declared `Happy-path scenario` has a corresponding test (fuzzy grep on the last identifier-like token).
-- Anti-mock heuristic on integration files (WARN-only): high mock density vs. declared scenarios.
+- For each non-Skipped layer block: `Files glob` resolves to ≥1 file; `Infra signature` regex matches in every resolved file (skipped when `n/a`, as is typical for unit); each declared `Happy-path scenario` has a corresponding test (fuzzy grep on the last identifier-like token).
+- Anti-mock heuristic on integration files (WARN-only): high mock density vs. declared scenarios — a no-op for Dev plans, which declare no live integration layer.
 
 Skip this step if executing a direct task (no plan file).
 
@@ -101,13 +101,13 @@ uv run --script .claude/hooks/validators/check_test_layers.py --plan <plan-path>
 
 **Interpreting the result:**
 - **PASS** → declared layers all match what was built. Done.
-- **FAIL** → either the per-layer test tasks did not produce the expected files, the chosen infra is not actually used, or scenario method names drifted from the plan. Address before `validate-all`: re-run the missing builder, rename test methods to match scenarios, or amend the plan if the implementation made a justified deviation.
+- **FAIL** → either the `unit-tests` task did not produce the expected files, the declared infra is not actually used, or scenario method names drifted from the plan. Address before `code-review`/`validate-all`: re-run the `unit-tester`, rename test methods to match scenarios, or amend the plan if the implementation made a justified deviation.
 
 The hook is generic — it does not know about specific testing libraries. It only verifies what the plan declared. New libraries or stacks need no code change here; just describe them in the plan.
 
 ### Step 5: Verify Surgical Scope (final check)
 
-Run **once** after all builder tasks complete (and after the validator agent's stack checks). Compares actual git changes against the plan's declared `## Relevant Files` + `### New Files` to catch unrelated edits, "while-we're-here" refactors, and scope creep.
+Run **once** after all dev/test tasks complete (and after the validator agent's stack checks). Compares actual git changes against the plan's declared `## Relevant Files` + `### New Files` to catch unrelated edits, "while-we're-here" refactors, and scope creep.
 
 Skip this step if executing a direct task (no plan file).
 
