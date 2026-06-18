@@ -1,6 +1,6 @@
 ---
 name: context-router
-description: Analyzes task semantically and returns required context sections. Use BEFORE builder to minimize token usage.
+description: Analyzes task semantically and returns required context sections. Use BEFORE the developer/unit-tester agents to minimize token usage.
 model: haiku
 tools: Read
 color: yellow

@@ -147,7 +147,7 @@ def main() -> None:
         parser.print_help()
         print("\nExamples:")
         print('  uv run task_summarizer.py "Built authentication system"')
-        print('  uv run task_summarizer.py "Built authentication system" --agent-name "builder"')
+        print('  uv run task_summarizer.py "Built authentication system" --agent-name "developer"')
         sys.exit(1)
 
     summary = summarize_subagent_task(args.task_description, args.agent_name)

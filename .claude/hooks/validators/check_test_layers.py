@@ -193,11 +193,9 @@ def check_layer(layer: dict) -> tuple[list[str], list[str]]:
     is_skipped = status.startswith("skipped") or status.startswith("opted out") or status.startswith("opt-out")
 
     if is_skipped:
-        if kind == "integration":
-            errors.append(
-                f"{label}: status `{layer['status']}` — Integration cannot be skipped. "
-                "This should have been caught by validate_plan.py Check 10; the plan was edited after validation."
-            )
+        # Dev scope: only the Unit Layer is live. Integration/E2E are owned by
+        # Test scope and are expected to be Skipped (or absent) in a Dev plan,
+        # so a Skipped layer is simply not checked here.
         return errors, warnings
 
     files_glob = layer.get("files_glob")
