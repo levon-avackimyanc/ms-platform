@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# Shape of `analytic/increment.md` for the Analytic_scope (/analyze command).
+#
+# Consumed by:
+#   - .claude/hooks/validators/validate_increment.py
+#       — structural validation on the Stop-hook of /analyze.
+#   - .claude/agents/business-analyst.md
+#       — agent reads this file to know which sections to write.
+#
+# Single source of truth. Edit here when the team agrees on a different
+# template; keep agent prompt and validator implementation as thin readers.
+# ---------------------------------------------------------------------------
+
+# Minimum length of meaningful content (after whitespace normalization)
+# for each required section. Sections shorter than this are flagged as
+# "agent rushed it" by minimum_length_per_section.
+default_min_section_length: 50
+
+# H2-headings that MUST appear in increment.md, in any order.
+# Names must match exactly (case-insensitive on validator side).
+required_sections:
+  - "Цель инкремента"
+  - "Функциональные требования"
+  - "Нефункциональные требования"
+  - "Business-flow"
+  - "Сценарии использования"
+  - "Acceptance criteria"
+
+# Subset of required_sections whose body MUST contain scenarios written in
+# Given-When-Then form. Each scenario is recognized as either:
+#   - an H3 heading (`### Scenario: ...`), or
+#   - a numbered list item (`1. ...`, `2. ...`).
+# Sections listed here that are not in required_sections are ignored.
+gwt_sections:
+  - "Сценарии использования"
+
+# Subset of required_sections whose body MUST contain a numbered list with
+# at least one item (`1. ...`). Bullet lists (`- ...`) are not accepted.
+numbered_list_sections:
+  - "Acceptance criteria"
