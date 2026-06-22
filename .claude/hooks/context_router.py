@@ -60,7 +60,7 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
     ], 6),
     ("java-testing#integration", [
         "testcontainers", "podman", "base test", "integration test",
-        "интеграционн",
+        "интеграционн", "system test", "sys-test", "системный тест",
     ], 7),
     ("java-testing#http", [
         "mockmvc", "resttemplate", "rest test", "http test",
@@ -250,6 +250,7 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "real database test", "real postgres test",
         "интеграционный тест python",
         "integration test python",
+        "system test", "sys-test", "системный тест",
     ], 8),
     ("python-testing#unit", [
         "pytest-mock", "mocker fixture",
@@ -306,6 +307,27 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "rust fixtures", "fixtures rust", "cargo test --test",
         "expected.json",
     ], 7),
+
+    # ── Load Testing (cross-stack; Test scope) ──
+    ("load-testing#basics", [
+        "load test", "load testing", "нагрузочн",
+        "stress test", "soak test", "endurance test", "spike test",
+        "throughput", "rps test", "requests per second",
+        "p95", "p99", "latency slo", "sla test",
+        "ramp-up", "virtual users", "vus",
+    ], 8),
+    ("load-testing#k6", [
+        "k6", "grafana k6", "xk6",
+    ], 7),
+    ("load-testing#gatling", [
+        "gatling", "gatling simulation",
+    ], 7),
+    ("load-testing#jmeter", [
+        "jmeter", ".jmx", "jmx",
+    ], 6),
+    ("load-testing#locust", [
+        "locust", "locustfile",
+    ], 7),
 ]
 
 # Companion rules: if ANY section with prefix matched → auto-include companion
@@ -317,6 +339,7 @@ COMPANION_RULES: list[tuple[str, str]] = [
     ("python-testing#", "python-testing#structure"),    # baseline для всех pytest задач
     ("rust-patterns#", "rust-patterns#basics"),         # baseline для всех Rust задач
     ("rust-testing#", "rust-testing#structure"),        # baseline для всех cargo-test задач
+    ("load-testing#", "load-testing#basics"),           # baseline для всех load задач
 ]
 
 # Detect "test" keyword per stack → auto-include testing sections
