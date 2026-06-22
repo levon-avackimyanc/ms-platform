@@ -1,8 +1,9 @@
 # Test Scope — design / contract
 
-> Status: **agreed contract** (design phase). Mirrors Dev scope conventions and
-> reuses the context router + testing refs. Build proceeds against this doc;
-> agent names/models are finalized as each is created.
+> Status: **implemented**. Mirrors Dev scope conventions and reuses the context
+> router + testing refs. All four commands (`/test_plan`, `/test_build`,
+> `/test_run`, `/test_gate`) and the new agents (`test-analyst`, `autotester`,
+> `failure-analyzer`, `bug-reporter`) exist; this doc is their reference.
 
 Test scope owns **authoring + execution/analysis** of higher-layer autotests:
 **Integration / Sys-test / E2E / UI / load**. **UNIT stays with Dev scope.**
