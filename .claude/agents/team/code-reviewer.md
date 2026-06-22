@@ -22,7 +22,8 @@ tools: Read, Bash, Glob, Grep, mcp__context7__resolve-library-id, mcp__context7_
 
 ## Входы
 
-- `ASSIGNED_TASKS` — задачи, которые делал developer (читай через `TaskGet`).
+- `ASSIGNED_TASKS` — задачи, которые делал developer (их описания передаёт
+  оркестратор в промпте; Task-инструментов у тебя нет).
 - Дифф изменений developer'а. Получи его через git:
   ```bash
   git diff <base-ref>...HEAD        # или git diff против точки старта пачки
