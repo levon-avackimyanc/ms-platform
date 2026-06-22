@@ -78,14 +78,17 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 0. **Resolve input** — confirm `analytic/increment.md` exists (`ls`); read it
    (+ `original_task.txt`, `review-report.json` for context). If absent → stop and
    ask for `/analyze`. State you are in Test-scope planning.
-1. **Explore & tag autotest areas** — if `explore/module-map.md` is missing/stale,
-   spawn `explorer` agent(s) (`subagent_type: "explorer"`, parallel for multi-module)
-   to tag the project by test type (they now emit `e2e`/`ui`/`load` tags too). Reuse
-   the map if fresh.
-2. **Test model** — spawn **`test-analyst`** (`subagent_type: "test-analyst"`,
-   foreground): from the increment + any Dev code + the module map, it writes
-   `test/test-model.md` (applicable layers + patterns/data/infra/runner/tags). If it
-   returns Open questions, resolve them (`AskUserQuestion`) and re-run.
+1. **Test model (analytic) — first.** Spawn **`test-analyst`**
+   (`subagent_type: "test-analyst"`, foreground): from the increment (+ any Dev
+   code + build files) it decides the **applicable layers** and writes
+   `test/test-model.md` (patterns/data/infra/runner per layer). If it returns Open
+   questions, resolve them (`AskUserQuestion`) and re-run. *(Board order:
+   analytic → Expl.)*
+2. **Explore & tag autotest areas — then.** Spawn `explorer` agent(s)
+   (`subagent_type: "explorer"`, parallel for multi-module) to tag the project by
+   test type for the layers the model declared (they emit `e2e`/`ui`/`load` tags
+   too) → `explore/module-map.md`; reuse if fresh. These tags become each autotest
+   task's `**Stack**`.
 3. **Design the plan** — from the test model, decide layers, the autotest tasks per
    layer, dependencies, and the `## Test Infrastructure (User-Declared)` blocks
    (live higher layers, each with Files glob / Infra signature / ≥1 named scenario /

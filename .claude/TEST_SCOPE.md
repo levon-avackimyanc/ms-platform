@@ -67,7 +67,7 @@ It is the contract the autotest authors follow and the source of the plan's
 | Command | Flow | Does | Output |
 |---|---|---|---|
 | `/test_plan` | A | test-analyst → `explorer` (tag autotest areas) → **test model** → plan (autotest tasks per layer) → plan-review | `test/test-model.md`, `test/test-plan.md` |
-| `/test_build` | A | `autotester` writes tests per layer (router → testing refs) → code-review. **Runs parallel with Dev.** | test code |
+| `/test_build` | A | `autotester` writes tests per layer (router → testing refs) → code-review (review→Plan loop: minor → re-author, fundamental → back to `/test_plan`). **Runs parallel with Dev.** | test code |
 | `/test_run` | B | **Human-launched after dev is done.** Exec → Analyzer triage → {fix-test loop \| **Bug**} | run report, `test/bugs/*.md` |
 | `/test_gate` | — | HITL: show run results + bugs + diff → on approve commit/merge | git commit |
 
