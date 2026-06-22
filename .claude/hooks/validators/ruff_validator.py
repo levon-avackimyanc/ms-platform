@@ -76,16 +76,38 @@ def main():
         if result.returncode == 0:
             logger.info("RESULT: PASS - Lint check successful")
             print(json.dumps({}))
-        else:
-            logger.info(f"RESULT: BLOCK (exit code {result.returncode})")
-            if stderr:
-                for line in stderr.split('\n')[:10]:
-                    logger.info(f"  stderr: {line}")
-            error_output = stdout or stderr or "Lint check failed"
-            print(json.dumps({
-                "decision": "block",
-                "reason": f"Lint check failed:\n{error_output[:500]}"
-            }))
+            return
+
+        # Auto-fix the safe violations first instead of blocking and making the
+        # agent hand-fix trivial lint. Then re-check; block only on what remains
+        # (real issues ruff won't auto-fix).
+        logger.info("Lint failed — running ruff check --fix")
+        subprocess.run(
+            ["uvx", "ruff", "check", "--fix", file_path],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        recheck = subprocess.run(
+            ["uvx", "ruff", "check", file_path],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if recheck.returncode == 0:
+            logger.info("RESULT: PASS - lint auto-fixed")
+            print(json.dumps({}))
+            return
+
+        error_output = recheck.stdout.strip() or recheck.stderr.strip() or "Lint check failed"
+        logger.info(f"RESULT: BLOCK (remaining after --fix, exit {recheck.returncode})")
+        print(json.dumps({
+            "decision": "block",
+            "reason": (
+                "Lint issues remain AFTER `ruff check --fix` — these need real changes, "
+                f"not formatting:\n{error_output[:500]}"
+            )
+        }))
 
     except subprocess.TimeoutExpired:
         logger.info("RESULT: BLOCK (timeout)")
