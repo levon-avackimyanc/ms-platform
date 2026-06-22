@@ -67,17 +67,19 @@ It is the contract the autotest authors follow and the source of the plan's
 | Command | Flow | Does | Output |
 |---|---|---|---|
 | `/test_plan` | A | test-analyst → `explorer` (tag autotest areas) → **test model** → plan (autotest tasks per layer) → plan-review | `test/test-model.md`, `test/test-plan.md` |
-| `/test_build` | A | integration/e2e/(load)-tester write tests (router → testing refs) → code-review. **Runs parallel with Dev.** | test code |
+| `/test_build` | A | `autotester` writes tests per layer (router → testing refs) → code-review. **Runs parallel with Dev.** | test code |
 | `/test_run` | B | **Human-launched after dev is done.** Exec → Analyzer triage → {fix-test loop \| **Bug**} | run report, `test/bugs/*.md` |
 | `/test_gate` | — | HITL: show run results + bugs + diff → on approve commit/merge | git commit |
 
 ## Agents
 
-- **New:** `test-analyst` (test model), `integration-tester`, `e2e-tester`,
-  `load-tester` (optional layer), `failure-analyzer` (the Analyzer),
+- **New:** `test-analyst` (test model), **`autotester`** (writes autotests for any
+  higher layer — the layer is selected per task via its `**Stack**` tags; parallel
+  instances are the board's `autotest_1/_2`), `failure-analyzer` (the Analyzer),
   `bug-reporter` (the Bug node).
 - **Reused:** `explorer` (now also emits `e2e`/`ui`/`load` test-type tags),
-  `plan-reviewer`, `code-reviewer` (reviews the test diff), `validator`.
+  `plan-reviewer` (criterion 10 inverts for Test scope — see its scope note),
+  `code-reviewer` (reviews the test diff), `validator`.
 - **Models** (mirror Dev policy): authors = sonnet, reviewers/analyst = opus
   (TBD per agent).
 
@@ -101,9 +103,8 @@ It is the contract the autotest authors follow and the source of the plan's
 - **Analyzer** — on a failure, triage from the **test-run logs** (+ Jacoco
   coverage + static analysis Spotbugs/Sonar; **prod logs + OBS** when a
   running/staging env exists — greenfield → skipped) and **classify the root cause**:
-  - **defect on the test side** → delegate the fix to the autotest sub-agent
-    (`integration`/`e2e`/`load-tester`) → **re-run** (loop until green or
-    reclassified as service-side);
+  - **defect on the test side** → delegate the fix to the `autotester` sub-agent
+    → **re-run** (loop until green or reclassified as service-side);
   - **defect on the service side** → `bug-reporter` writes a markdown bug to
     `test/bugs/`;
   - **cannot classify confidently** → file a bug **and flag for a human**; never

@@ -79,6 +79,12 @@ For each criterion, assign: **PASS**, **FAIL**, or **WARN**.
 | 9 | **Surgical Scope** — Does the plan touch only what the Objective requires? Every file, task, and change must trace directly back to the stated goal. | All listed files and task actions are necessary for the Objective; no unrelated refactors, formatting passes, or cleanup of pre-existing dead code | Plan refactors/reformats/renames code unrelated to the Objective, deletes pre-existing dead code that wasn't requested, or includes "while we're here" improvements | One or two adjacent files included without clear justification; minor scope creep that should be questioned |
 | 10 | **Test Realism (Unit — Dev scope)** — This is a **Dev scope** plan: it declares unit tests only. Is `## Test Infrastructure (User-Declared)` filled with a verifiable **Unit Layer**, do declared unit scenarios cover the Acceptance Criteria, and is the unit toolchain consistent with the repo? | A live `### Unit Layer (<stack>)` block is present and complete (Files glob, ≥1 named scenario, Runner command, Realism rationale); every Acceptance Criterion is covered by ≥1 declared unit scenario (fuzzy match — your judgment); chosen unit toolchain (JUnit/Mockito, pytest, jest, etc.) and Runner command match what the repo actually runs; any `### Integration Layer` / `### E2E Layer` blocks are absent or marked `Skipped — owned by Test scope` | Section missing or empty; no live Unit Layer (Unit Layer missing or marked Skipped); an Acceptance Criterion has no corresponding declared unit scenario; declared unit infra contradicts what the repo supports; **a live (non-Skipped) Integration or E2E layer is declared in a Dev plan** — those belong to Test scope, not here | Minor unit-scenario coverage gaps; Realism rationale too vague to verify |
 
+> **Scope note (criterion 10).** The table assumes a **Dev-scope** plan. If your
+> prompt says the plan is **Test scope**, invert criterion 10: a **live** higher
+> layer (Integration / Sys / E2E / UI / Load) is REQUIRED, an infra signature is
+> required for each such layer, and the **Unit** layer is owned by Dev (must be
+> absent or `Skipped`). All other criteria are unchanged.
+
 ### Step 5: Determine Overall Verdict
 
 - **PASS** — All criteria pass, or only WARNs on non-critical items. Safe to proceed.
