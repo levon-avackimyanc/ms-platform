@@ -65,6 +65,16 @@ Now you have only the relevant reference sections loaded.
 
 Use this context to implement the task following the patterns.
 
+**You (the orchestrator) own the task ledger.** The Dev scope sub-agents
+(`developer` / `unit-tester` / `code-reviewer` / `validator`) have **no Task tools**
+— they cannot call `TaskUpdate`/`TaskGet`, so they receive their tasks via the
+prompt and report what they did in their **Report**. After each agent returns, *you*
+update the shared task status (and the OpenSpec `tasks.md` in Step 4) from that
+Report. Do not assume an agent updated its own status. If an agent "comes to rest"
+mid-task (partial output), inspect the files on disk to determine actual completion
+before deploying a continuation — continuations are fresh agents (no `SendMessage`
+context), so they must rely on on-disk artifacts plus a precise prompt.
+
 ### Step 4: Track OpenSpec Progress (if available)
 
 This step runs **incrementally throughout plan execution**, not as a batch at the end.

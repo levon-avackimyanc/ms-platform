@@ -80,16 +80,35 @@ def main():
         if result.returncode == 0:
             logger.info("Prettier check passed")
             print(json.dumps({}))
-        else:
-            logger.warning("Prettier format check failed")
-            print(
-                json.dumps(
-                    {
-                        "decision": "block",
-                        "reason": f"Prettier format check failed for {Path(file_path).name}\n\nRun: npx prettier --write {file_path}",
-                    }
-                )
+            return
+
+        # Pure formatting — auto-apply instead of blocking and making the agent
+        # hand-format (that caused repeated stalls).
+        logger.info("Prettier check failed — running prettier --write")
+        write = subprocess.run(
+            ["npx", "prettier", "--write", file_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=project_root,
+        )
+        if write.returncode == 0:
+            logger.info("Prettier auto-applied; file now formatted")
+            print(json.dumps({}))
+            return
+
+        logger.warning("Prettier --write failed")
+        print(
+            json.dumps(
+                {
+                    "decision": "block",
+                    "reason": (
+                        f"Prettier could not auto-format {Path(file_path).name} — likely a syntax "
+                        f"error, not formatting. Fix the syntax:\n{(write.stdout + write.stderr)[:500]}"
+                    ),
+                }
             )
+        )
     except subprocess.TimeoutExpired:
         logger.error("Prettier check timed out")
         print(json.dumps({}))

@@ -106,6 +106,9 @@ coverage/
 # ---------- Analytic scope working artifacts ----------
 analytic/
 
+# ---------- Dev scope working artifacts ----------
+explore/
+
 # ---------- Misc ----------
 *.db
 *.sqlite

@@ -89,17 +89,46 @@ def main():
         if result.returncode == 0:
             logger.info("Spotless check passed")
             print(json.dumps({}))
-        else:
-            error_output = result.stdout + result.stderr
-            logger.warning(f"Spotless check failed: {error_output[:500]}")
-            print(
-                json.dumps(
-                    {
-                        "decision": "block",
-                        "reason": f"Spotless (Palantir format) check failed:\n{error_output[:500]}\n\nRun: mvn spotless:apply",
-                    }
-                )
+            return
+
+        # Formatting is deterministic and safe to auto-apply. Blocking here and
+        # asking the agent to "fix and retry" made agents hand-format whitespace
+        # and stall in a loop. Instead: apply the formatter in place, re-check,
+        # and only block if something fails AFTER formatting (a real problem).
+        logger.info("Spotless check failed — running spotless:apply")
+        apply = subprocess.run(
+            ["mvn", "spotless:apply", "-q"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=project_root,
+        )
+        recheck = subprocess.run(
+            ["mvn", "spotless:check", "-q"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=project_root,
+        )
+        if recheck.returncode == 0:
+            logger.info("Spotless auto-applied; file now formatted")
+            print(json.dumps({}))
+            return
+
+        error_output = apply.stdout + apply.stderr + recheck.stdout + recheck.stderr
+        logger.warning(f"Spotless still failing after apply: {error_output[:500]}")
+        print(
+            json.dumps(
+                {
+                    "decision": "block",
+                    "reason": (
+                        "Spotless still fails AFTER auto-applying the formatter — this is NOT a "
+                        "whitespace issue, do not hand-format. Inspect the actual error:\n"
+                        f"{error_output[:500]}"
+                    ),
+                }
             )
+        )
     except subprocess.TimeoutExpired:
         logger.error("Spotless check timed out")
         print(json.dumps({}))  # Don't block on timeout
