@@ -235,7 +235,7 @@ def check_layer(layer: dict) -> tuple[list[str], list[str]]:
                 f"{label}: `Infra signature` `{sig}` not found in {len(files_missing_sig)} file(s): {sample}{more}. "
                 "The declared infrastructure is not actually used by these tests."
             )
-    elif kind in ("integration", "e2e"):
+    elif kind in ("integration", "sys", "e2e", "ui", "load"):
         errors.append(
             f"{label}: `Infra signature` is required for {kind} layer (got `{sig}`). "
             "Declare a regex that proves the chosen infrastructure is in use "

@@ -238,13 +238,13 @@ def parse_plan(content: str) -> dict:
 
         # Split into layer blocks by `### <Kind> Layer (<stack>)` headers
         layer_header = re.compile(
-            r'^###\s+(Unit|Integration|E2E)\s+Layer\s*\(([^)]+)\)(.*)$',
+            r'^###\s+(Unit|Integration|Sys|E2E|UI|Load)\s+Layer\s*\(([^)]+)\)(.*)$',
             re.MULTILINE | re.IGNORECASE
         )
         layer_matches = list(layer_header.finditer(ti_block))
 
         for i, m in enumerate(layer_matches):
-            kind = m.group(1).strip().lower()  # unit | integration | e2e
+            kind = m.group(1).strip().lower()  # unit|integration|sys|e2e|ui|load
             stack = m.group(2).strip()
             # Block text from end of this header to start of next (or end of section)
             start = m.end()
@@ -467,17 +467,15 @@ def check_acceptance_criteria(criteria_text: str) -> list[str]:
     return errors
 
 
-def check_test_layer_tasks(tasks: list[dict], test_infra: dict) -> list[str]:
-    """Check 8: Dev scope requires a dedicated `unit-tests` task.
+def check_test_layer_tasks(tasks: list[dict], test_infra: dict, scope: str = "dev") -> list[str]:
+    """Check 8: the plan declares the test task(s) its scope requires.
 
-    Dev scope writes UNIT tests only. Integration/E2E tests are the
-    responsibility of Test scope, not the Dev plan — they are no longer
-    mandated here.
-
-    Required: `unit-tests`.
-    Forbidden: `write-tests` (single combined task is the legacy pattern).
-    Optional: `integration-tests` / `e2e-tests` may appear (e.g. Test scope
-    plans) and are not rejected, but they are not required for a Dev plan.
+    Dev scope (default): requires a dedicated `unit-tests` task — Dev writes UNIT
+    tests only; integration/e2e belong to Test scope.
+    Test scope: forbids a `unit-tests` task (UNIT is Dev's) and requires at least
+    one autotest task (`integration-tests` / `sys-tests` / `e2e-tests` /
+    `ui-tests` / `load-tests`).
+    The legacy combined `write-tests` task is forbidden in both scopes.
     """
     errors = []
     task_ids = {t.get("id", "").lower() for t in tasks if t.get("id")}
@@ -485,16 +483,29 @@ def check_test_layer_tasks(tasks: list[dict], test_infra: dict) -> list[str]:
     if "write-tests" in task_ids:
         errors.append(
             "Legacy single combined `write-tests` task is forbidden. "
-            "Dev scope writes unit tests via a dedicated `unit-tests` task "
-            "(integration/e2e tests belong to Test scope)."
+            "Split test work into per-layer tasks."
         )
 
-    if "unit-tests" not in task_ids:
-        errors.append(
-            "Missing mandatory `unit-tests` task. Dev scope MUST include a dedicated "
-            "unit-tests task assigned to the `unit-tester` agent. Integration and E2E "
-            "tests are handled by Test scope, not the Dev plan."
-        )
+    if scope == "test":
+        if "unit-tests" in task_ids:
+            errors.append(
+                "A `unit-tests` task does not belong in a Test-scope plan — unit tests "
+                "are owned by Dev scope. Use per-layer autotest tasks instead."
+            )
+        autotest_ids = {"integration-tests", "sys-tests", "e2e-tests", "ui-tests", "load-tests"}
+        if not (task_ids & autotest_ids):
+            errors.append(
+                "Test-scope plan has no autotest task. Add at least one of "
+                "`integration-tests` / `sys-tests` / `e2e-tests` / `ui-tests` / `load-tests` "
+                "matching the live layers in `## Test Infrastructure (User-Declared)`."
+            )
+    else:  # dev
+        if "unit-tests" not in task_ids:
+            errors.append(
+                "Missing mandatory `unit-tests` task. Dev scope MUST include a dedicated "
+                "unit-tests task assigned to the `unit-tester` agent. Integration and E2E "
+                "tests are handled by Test scope, not the Dev plan."
+            )
 
     return errors
 
@@ -513,16 +524,18 @@ def check_test_infrastructure_section(test_infra: dict) -> list[str]:
     return errors
 
 
-def check_test_infrastructure_fields(test_infra: dict) -> list[str]:
-    """Check 10: Each non-Skipped test layer block has all required fields.
+def check_test_infrastructure_fields(test_infra: dict, scope: str = "dev") -> list[str]:
+    """Check 10: each non-Skipped layer block has all required fields, and the
+    scope's mandatory layer(s) are present.
 
-    Dev scope mandates only the Unit Layer. Integration/E2E layers are
-    optional in a Dev plan (Test scope owns them); if present and not Skipped
-    they are still validated for completeness, but they may be absent or Skipped.
+    Dev scope (default): the Unit Layer is REQUIRED; the higher layers are
+    optional (Test scope owns them) and may be absent or Skipped.
+    Test scope: at least one LIVE higher layer (Integration/Sys/E2E/UI/Load) is
+    REQUIRED; a Unit Layer, if present, is owned by Dev and should be Skipped.
 
-    - Unit Layer is REQUIRED (FAIL if absent).
-    - For non-Skipped layers: Files glob, ≥1 scenario, Runner command, Realism rationale required.
-    - Infra signature: required for Integration and (non-Skipped) E2E. Optional for Unit.
+    For every non-Skipped layer: Files glob, ≥1 scenario, Runner command, Realism
+    rationale are required. Infra signature is required for the realism-critical
+    higher layers (integration/sys/e2e/ui/load), optional for unit.
     """
     errors = []
     if not test_infra.get("section_present"):
@@ -532,14 +545,17 @@ def check_test_infrastructure_fields(test_infra: dict) -> list[str]:
     if not layers:
         errors.append(
             "`## Test Infrastructure (User-Declared)` section has no layer blocks. "
-            "Add at least a `### Unit Layer (<stack>)` block."
+            "Add the layer block(s) your scope requires (Dev: Unit; "
+            "Test: Integration/Sys/E2E/UI/Load)."
         )
         return errors
 
     def _kind_label(k: str) -> str:
-        return "E2E" if k == "e2e" else k.capitalize()
+        return {"e2e": "E2E", "ui": "UI"}.get(k, k.capitalize())
 
+    higher_kinds = ("integration", "sys", "e2e", "ui", "load")
     saw_unit = False
+    saw_live_higher = False
     for layer in layers:
         kind = layer.get("kind")
         stack = layer.get("stack")
@@ -549,8 +565,10 @@ def check_test_infrastructure_fields(test_infra: dict) -> list[str]:
 
         if kind == "unit":
             saw_unit = True
+        if kind in higher_kinds and not is_skipped:
+            saw_live_higher = True
 
-        # Integration/E2E may be Skipped or absent in a Dev plan (Test scope owns them).
+        # A Skipped layer is a deliberate hand-off; not validated for fields.
         if is_skipped:
             continue
 
@@ -572,26 +590,33 @@ def check_test_infrastructure_fields(test_infra: dict) -> list[str]:
                 "realistic tests this repo can run for this layer."
             )
 
-        # Infra signature required for Integration and E2E (optional for Unit)
-        if kind in ("integration", "e2e") and not layer.get("infra_signature"):
+        # Infra signature required for the realism-critical higher layers (optional for unit)
+        if kind in higher_kinds and not layer.get("infra_signature"):
             errors.append(
                 f"{label} missing `**Infra signature:**` regex — it must match what `check_test_layers.py` "
                 f"will grep in test files to prove the declared infra is actually used."
             )
 
-    if not saw_unit:
-        errors.append(
-            "No `### Unit Layer (<stack>)` block found in `## Test Infrastructure (User-Declared)`. "
-            "Dev scope requires a Unit Layer (integration/e2e are optional here — Test scope owns them)."
-        )
+    if scope == "test":
+        if not saw_live_higher:
+            errors.append(
+                "Test-scope plan declares no live higher-layer block. Add at least one non-Skipped "
+                "`### Integration|Sys|E2E|UI|Load Layer (<stack>)` block (Unit is owned by Dev)."
+            )
+    else:  # dev
+        if not saw_unit:
+            errors.append(
+                "No `### Unit Layer (<stack>)` block found in `## Test Infrastructure (User-Declared)`. "
+                "Dev scope requires a Unit Layer (integration/e2e are optional here — Test scope owns them)."
+            )
 
     return errors
 
 
 # ── Main Validation ──
 
-def validate_plan(filepath: str, team_dir: str) -> tuple[bool, str]:
-    """Run all 10 checks on a plan file."""
+def validate_plan(filepath: str, team_dir: str, scope: str = "dev") -> tuple[bool, str]:
+    """Run all 10 checks on a plan file (scope: dev|test)."""
     logger.info(f"Validating plan: {filepath}")
 
     try:
@@ -653,7 +678,7 @@ def validate_plan(filepath: str, team_dir: str) -> tuple[bool, str]:
     all_errors.extend(errs)
 
     # Check 8: Per-layer test tasks exist (legacy `write-tests` rejected)
-    errs = check_test_layer_tasks(plan["tasks"], plan["test_infrastructure"])
+    errs = check_test_layer_tasks(plan["tasks"], plan["test_infrastructure"], scope)
     if errs:
         logger.warning(f"Check 8 (per-layer test tasks): {len(errs)} errors")
     all_errors.extend(errs)
@@ -665,7 +690,7 @@ def validate_plan(filepath: str, team_dir: str) -> tuple[bool, str]:
     all_errors.extend(errs)
 
     # Check 10: Each non-Skipped layer block has required fields; Unit Layer required, Integration/E2E optional (Test scope owns them)
-    errs = check_test_infrastructure_fields(plan["test_infrastructure"])
+    errs = check_test_infrastructure_fields(plan["test_infrastructure"], scope)
     if errs:
         logger.warning(f"Check 10 (test infra fields): {len(errs)} errors")
     all_errors.extend(errs)
@@ -707,6 +732,11 @@ def parse_args() -> argparse.Namespace:
         '--team-dir', type=str, default='.claude/agents/team',
         help='Directory with team agent .md files (default: .claude/agents/team)'
     )
+    parser.add_argument(
+        '--scope', type=str, choices=['dev', 'test'], default='dev',
+        help="Plan scope: 'dev' (Unit Layer + unit-tests task) or 'test' "
+             "(live Integration/Sys/E2E/UI/Load layers + autotest tasks). Default: dev."
+    )
     return parser.parse_args()
 
 
@@ -743,7 +773,7 @@ def main():
                 print(json.dumps({"result": "block", "reason": msg}))
                 sys.exit(1)
 
-        success, message = validate_plan(filepath, args.team_dir)
+        success, message = validate_plan(filepath, args.team_dir, args.scope)
 
         if success:
             print(json.dumps({"result": "continue", "message": message}))
