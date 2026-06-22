@@ -349,6 +349,13 @@ def route(task: str) -> dict:
             if kw in task_norm:
                 matched.append((section_id, priority, kw))
                 break
+        else:
+            # No trigger keyword matched, but the section id itself may appear as
+            # an explicit tag (e.g. copied from explore/module-map.md or a plan's
+            # **Stack** field). A section id is a specific token, so this is a safe
+            # exact match and guarantees explicit tags always route.
+            if section_id in task_norm:
+                matched.append((section_id, priority, section_id))
 
     # Dedupe and sort by priority (descending)
     seen: set[str] = set()

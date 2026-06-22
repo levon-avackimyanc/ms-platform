@@ -24,16 +24,21 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__get
 
 ## Словарь тегов (важно)
 
-Теги берутся из **Section Routing Catalog** (см. `commands/plan_w_team.md`) —
-это тот же плоский keyword-catalog, по которому потом маршрутизируется контекст
-для dev'ов. Примеры: `java-patterns#basics`, `java-patterns#errors`,
-`java-testing#integration`, `java-testing#jdbc`, `python-patterns#fastapi`,
-`react-patterns#core`. Плюс **доменные теги** (имена внутренних библиотек /
-подсистем: `kafka`, `liquibase`, `auth`, `rag` и т. п.), если они явно
-прослеживаются в коде.
+Теги — это **trigger keywords** из колонки «Trigger keywords» в Section Routing
+Catalog (`commands/plan_w_team.md`), а **НЕ** section-id вида `java-patterns#basics`.
+Причина: планировщик подставляет твои теги прямо в поле `**Stack**` задач, а
+`context_router.py` маршрутизирует контекст **по совпадению этих ключевых слов
+подстрокой** — section-id он надёжно не роутит (например `java-testing#jdbc` не
+сматчится, а keyword `jdbc test` — сматчится). Пиши именно ключевые слова.
 
-Не выдумывай теги, которых нет ни в каталоге, ни в коде. Тег обязан быть
-обоснован тем, что реально есть в модуле.
+Примеры корректных тегов: `java`, `spring`, `jpa`, `controller`, `exception`,
+`mockmvc`, `testcontainers`, `integration test`, `mockito`, `fastapi`,
+`pydantic`, `pytest`, `react`, `hook`. Плюс **доменные теги** (имена внутренних
+библиотек / подсистем: `kafka`, `liquibase`, `auth`, `rag` и т. п.), если они
+явно прослеживаются в коде.
+
+Не выдумывай теги, которых нет ни в колонке Trigger keywords каталога, ни в
+коде. Тег обязан быть обоснован тем, что реально есть в модуле.
 
 ## Workflow
 
@@ -61,11 +66,12 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__get
 
 | Module | Path | Stack | Tags | Key entry points | Notes |
 |--------|------|-------|------|------------------|-------|
-| user-service | services/user | Java Spring | java-patterns#basics, java-testing#integration, jdbc, auth | UserController, UserService, UserRepository | REST + JPA (Postgres), Spring Security |
+| user-service | services/user | Java Spring | java, spring, jpa, controller, testcontainers, integration test, auth | UserController, UserService, UserRepository | REST + JPA (Postgres), Spring Security |
 | ... | ... | ... | ... | ... | ... |
 ```
 
-- **Tags** — comma-separated, именно те, что планировщик подставит в `**Stack**` задач.
+- **Tags** — comma-separated **trigger keywords** (не section-id); планировщик
+  подставит их в `**Stack**` задач, а `context_router.py` сматчит подстрокой.
 - **Key entry points** — 2–5 символов, по которым dev быстро найдёт точку входа.
 - **Notes** — одна фраза: что это за модуль и его инфраструктура.
 
