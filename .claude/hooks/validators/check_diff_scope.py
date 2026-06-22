@@ -67,10 +67,14 @@ def get_changed_files(baseline: str | None) -> list[str]:
     """Collect changed files: working tree + index, optionally vs a baseline ref."""
     files: set[str] = set()
 
-    # Working tree + index changes
+    # Working tree + index changes.
+    # `--untracked-files=all` is required: without it git collapses a fully
+    # untracked directory into a single entry (e.g. `?? src/`), which can't be
+    # matched against the plan's per-file scope. On a greenfield repo (no commits)
+    # everything is untracked, so this is what makes the check meaningful there.
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "--untracked-files=all"],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
