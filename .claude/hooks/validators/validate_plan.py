@@ -14,7 +14,7 @@ Checks:
 2. Task IDs are unique
 3. `Depends On` references point to existing Task IDs (no dangling refs)
 4. No circular dependencies (DFS with coloring)
-5. Agent Types exist in `.claude/agents/team/*.md` (+ built-in types)
+5. Agent Types exist in `.claude/agents/**/*.md` (+ built-in types)
 6. Acceptance Criteria not empty
 7. Every task has a **Stack** field with keywords that route to context sections
 8. Dev scope requires a `unit-tests` task. Integration/e2e are Test scope's job, not mandated here. Single combined `write-tests` is rejected.
@@ -26,10 +26,10 @@ Exit codes:
 - 1: Validation failed (structural errors found)
 
 Usage (Stop hook - finds newest file in directory):
-  uv run --script validate_plan.py --directory specs --extension .md --team-dir .claude/agents/team
+  uv run --script validate_plan.py --directory specs --extension .md --team-dir .claude/agents
 
 Usage (direct call - specific file):
-  uv run --script validate_plan.py --file specs/my-plan.md --team-dir .claude/agents/team
+  uv run --script validate_plan.py --file specs/my-plan.md --team-dir .claude/agents
 """
 
 import argparse
@@ -397,7 +397,7 @@ def check_agent_types(tasks: list[dict], team_dir: str) -> list[str]:
     team_path = Path(team_dir)
     available: set[str] = set(BUILT_IN_AGENT_TYPES)
     if team_path.exists():
-        for md_file in team_path.glob("*.md"):
+        for md_file in team_path.rglob("*.md"):  # recursive — agents live in scope subdirs
             # Agent name = filename without extension
             available.add(md_file.stem)
 
@@ -729,8 +729,8 @@ def parse_args() -> argparse.Namespace:
         help='Direct path to plan file (bypasses directory scanning)'
     )
     parser.add_argument(
-        '--team-dir', type=str, default='.claude/agents/team',
-        help='Directory with team agent .md files (default: .claude/agents/team)'
+        '--team-dir', type=str, default='.claude/agents',
+        help='Root dir scanned recursively for agent .md files (default: .claude/agents)'
     )
     parser.add_argument(
         '--scope', type=str, choices=['dev', 'test'], default='dev',

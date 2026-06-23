@@ -30,7 +30,7 @@ hooks:
             --directory test
             --extension .md
             --scope test
-            --team-dir $CLAUDE_PROJECT_DIR/.claude/agents/team
+            --team-dir $CLAUDE_PROJECT_DIR/.claude/agents
 ---
 
 # Test Plan
@@ -47,7 +47,7 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 - **ORCHESTRATION_PROMPT** = `$1` — (optional) guidance for layer/team/task structure.
 - **TEST_MODEL** = `test/test-model.md` — authoring model (produced in Step 2).
 - **PLAN_OUTPUT** = `test/test-plan.md`.
-- **TEAM_MEMBERS** = `.claude/agents/team/*.md`.
+- **TEAM_MEMBERS** = `.claude/agents/**/*.md`.
 
 ## Instructions
 
@@ -96,7 +96,7 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 4. **Write `test/test-plan.md`** in the format below (triggers the Stop hooks).
 5. **Validate + review** —
    ```bash
-   uv run --script .claude/hooks/validators/validate_plan.py --file test/test-plan.md --scope test --team-dir .claude/agents/team
+   uv run --script .claude/hooks/validators/validate_plan.py --file test/test-plan.md --scope test --team-dir .claude/agents
    ```
    then spawn `plan-reviewer` (`subagent_type: "plan-reviewer"`) with a prompt that
    **states the plan is Test scope** (so criterion 10 inverts — see plan-reviewer

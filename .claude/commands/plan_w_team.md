@@ -30,7 +30,7 @@ hooks:
             uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/validate_plan.py
             --directory specs
             --extension .md
-            --team-dir $CLAUDE_PROJECT_DIR/.claude/agents/team
+            --team-dir $CLAUDE_PROJECT_DIR/.claude/agents
 ---
 
 # Plan With Team
@@ -43,7 +43,7 @@ USER_PROMPT: $1 - (Optional if INCREMENT_FILE exists) Free-text task from the us
 ORCHESTRATION_PROMPT: $2 - (Optional) Guidance for team assembly, task structure, and execution strategy
 INCREMENT_FILE: `analytic/increment.md` - The business increment produced by `/analyze`. When present, this is the **primary planning input**. Its companions `analytic/original_task.txt` and `analytic/review-report.json` give context.
 PLAN_OUTPUT_DIRECTORY: `specs/`
-TEAM_MEMBERS: `.claude/agents/team/*.md`
+TEAM_MEMBERS: `.claude/agents/**/*.md`
 GENERAL_PURPOSE_AGENT: `general-purpose`
 
 ## Instructions
@@ -339,7 +339,7 @@ IMPORTANT: **PLANNING ONLY** - Do not build product code or execute the plan. Ou
    - Skip this step entirely if every implementation choice has a single obvious answer from the code.
 6. Design Solution - Develop technical approach including architecture decisions and implementation strategy
 7. Define Testing Strategy + Test Infrastructure (User-Declared) - Plan the **unit-test** coverage for this change: service logic, branches, edge cases, error paths. Map each unit test to the source code it validates and reference existing unit-test patterns from the codebase. **Then fill in `## Test Infrastructure (User-Declared)`**: per stack, write the mandatory `### Unit Layer (<stack>)` block with its machine-verifiable fields (Files glob, Happy-path scenarios, Runner command, Realism rationale; Infra signature optional for unit). If you include `### Integration Layer` / `### E2E Layer` blocks at all, mark them `Skipped — owned by Test scope`. Multi-stack projects produce one Unit Layer block per stack.
-8. Define Team Members - Use `ORCHESTRATION_PROMPT` (if provided) to guide team composition. Identify from `.claude/agents/team/*.md` or use `general-purpose`. A Dev scope team is: one or more `developer` members (product code), a paired `unit-tester` per developer (unit tests), a `code-reviewer` (per-developer diff review), and a `validator` for final validation. Document in plan.
+8. Define Team Members - Use `ORCHESTRATION_PROMPT` (if provided) to guide team composition. Identify from `.claude/agents/**/*.md` or use `general-purpose`. A Dev scope team is: one or more `developer` members (product code), a paired `unit-tester` per developer (unit tests), a `code-reviewer` (per-developer diff review), and a `validator` for final validation. Document in plan.
 9. Define Step by Step Tasks - Use `ORCHESTRATION_PROMPT` (if provided) to guide task granularity and parallel/sequential structure. Write out tasks with IDs, dependencies, assignments, and `**Tests**` field. **The plan MUST include a dedicated `unit-tests` task (assigned to `unit-tester`), then a `code-review` task (assigned to `code-reviewer`), then a final `validate-all` task (assigned to `validator`).** The single combined `write-tests` task is forbidden, and `integration-tests` / `e2e-tests` tasks MUST NOT appear — those belong to Test scope. **Greenfield projects:** the first scaffold/setup task MUST create a `.gitignore` covering build output (`target/`, `build/`, `dist/`, `node_modules/`, `__pycache__/`) so generated artifacts are not later flagged by the Surgical Scope check (`check_diff_scope.py`); list `.gitignore` under `### New Files`. Document in plan.
 10. Generate Filename - Create a descriptive kebab-case filename based on the plan's main topic
 11. Save Plan - Write the plan to `PLAN_OUTPUT_DIRECTORY/<filename>.md`
@@ -347,7 +347,7 @@ IMPORTANT: **PLANNING ONLY** - Do not build product code or execute the plan. Ou
 
     **Structural check:**
     ```bash
-    uv run --script .claude/hooks/validators/validate_plan.py --file <plan-path> --team-dir .claude/agents/team
+    uv run --script .claude/hooks/validators/validate_plan.py --file <plan-path> --team-dir .claude/agents
     ```
 
     **Content review** (spawn plan-reviewer agent):
@@ -555,7 +555,7 @@ mark them `Skipped — owned by Test scope`, e.g.:
 - Run `check_test_layers.py` post-build hook (already covered by `/smart_build` Step 4.5, but verify here too)
 - Verify acceptance criteria met
 
-<continue with additional tasks as needed. Agent types must exist in .claude/agents/team/*.md>
+<continue with additional tasks as needed. Agent types must exist in .claude/agents/**/*.md>
 
 ## Acceptance Criteria
 <list specific, measurable criteria that must be met for the task to be considered complete>

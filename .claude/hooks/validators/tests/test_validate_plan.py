@@ -42,7 +42,7 @@ from validate_plan import (  # noqa: E402  (intentional late import)
 
 VALIDATOR_SCRIPT = VALIDATORS_DIR / "validate_plan.py"
 REPO_ROOT = VALIDATORS_DIR.parent.parent.parent
-TEAM_DIR = REPO_ROOT / ".claude" / "agents" / "team"
+TEAM_DIR = REPO_ROOT / ".claude" / "agents"
 
 # ---------------------------------------------------------------------------
 # Fixtures
