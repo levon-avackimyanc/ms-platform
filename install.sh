@@ -116,6 +116,42 @@ else
 fi
 
 echo "  Validators: Java, React/TS, Python (all installed)"
+
+# ─────────────────────────────────────────────────────────────
+# 3. MCP servers (context7, serena)
+# ─────────────────────────────────────────────────────────────
+echo ""
+echo -e "${GREEN}MCP servers${NC}"
+
+if command -v claude &> /dev/null; then
+    # context7 — up-to-date library docs (runs via npx)
+    if command -v npx &> /dev/null; then
+        if claude mcp add context7 -s project -- npx -y @upstash/context7-mcp@latest 2>/dev/null; then
+            echo -e "  ${GREEN}context7: added${NC}"
+        else
+            echo -e "  ${YELLOW}context7: skipped (already configured or failed)${NC}"
+        fi
+    else
+        echo -e "  ${YELLOW}context7: skipped (npx/Node.js not found)${NC}"
+    fi
+
+    # serena — semantic code toolkit (runs via uvx, provided by uv)
+    if command -v uvx &> /dev/null; then
+        if claude mcp add serena -s project -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project "$(pwd)" 2>/dev/null; then
+            echo -e "  ${GREEN}serena: added${NC}"
+        else
+            echo -e "  ${YELLOW}serena: skipped (already configured or failed)${NC}"
+        fi
+    else
+        echo -e "  ${YELLOW}serena: skipped (uvx not found — install uv)${NC}"
+    fi
+else
+    echo -e "  ${YELLOW}claude CLI not found — skipping MCP setup.${NC}"
+    echo "  After installing Claude Code, run:"
+    echo "    claude mcp add context7 -- npx -y @upstash/context7-mcp@latest"
+    echo "    claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant"
+fi
+
 echo ""
 echo -e "${GREEN}Done!${NC}"
 echo ""
