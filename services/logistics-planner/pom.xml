@@ -59,10 +59,15 @@
             <version>${ortools.version}</version>
         </dependency>
 
-        <!-- Flyway database migrations -->
+        <!-- Flyway: in Spring Boot 4 the autoconfiguration lives in spring-boot-starter-flyway,
+             not spring-boot-autoconfigure. flyway-database-postgresql is required for Flyway 10+. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
         <!-- PostgreSQL driver (runtime) -->

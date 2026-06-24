@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: logistics
+      POSTGRES_USER: logistics
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-logistics}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logistics -d logistics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  logistics-planner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logistics
+      SPRING_DATASOURCE_USERNAME: logistics
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-logistics}
+      MAPS_PROVIDER: ${MAPS_PROVIDER:-stub}
+      MAPS_API_KEY: ${MAPS_API_KEY:-placeholder}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

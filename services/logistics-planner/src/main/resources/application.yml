@@ -5,9 +5,9 @@ spring:
   application:
     name: logistics-planner
   datasource:
-    url: jdbc:postgresql://localhost:5432/logistics
-    username: logistics
-    password: logistics
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,18 +18,22 @@ spring:
     locations: classpath:db/migration
   cache:
     type: caffeine
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-    default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
 
 maps:
-  provider: stub
-  api-key: ${MAPS_API_KEY:placeholder}
+  provider: ${MAPS_PROVIDER}
+  api-key: ${MAPS_API_KEY}
 
 async:
   planning:
     core-pool-size: 4
     max-pool-size: 10
     queue-capacity: 50
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
