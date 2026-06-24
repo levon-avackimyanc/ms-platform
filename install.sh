@@ -152,6 +152,38 @@ else
     echo "    claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant"
 fi
 
+# ─────────────────────────────────────────────────────────────
+# 4. OpenSpec (optional — living specs for /plan_w_team + /smart_build)
+# ─────────────────────────────────────────────────────────────
+echo ""
+echo -e "${GREEN}OpenSpec (optional)${NC}"
+
+if command -v npm &> /dev/null; then
+    if command -v openspec &> /dev/null; then
+        echo -e "  ${GREEN}openspec: already installed ($(openspec --version 2>/dev/null))${NC}"
+    elif npm install -g @fission-ai/openspec 2>/dev/null; then
+        echo -e "  ${GREEN}openspec: installed${NC}"
+    else
+        echo -e "  ${YELLOW}openspec: skipped (npm install failed)${NC}"
+    fi
+
+    # Initialize OpenSpec in this project so /plan_w_team explore/propose
+    # and /smart_build task-tracking steps activate (otherwise they skip).
+    if command -v openspec &> /dev/null; then
+        if [ -d "openspec" ]; then
+            echo "  openspec: already initialized in this project"
+        elif openspec init --tools claude 2>/dev/null; then
+            echo -e "  ${GREEN}openspec: initialized (openspec/ created)${NC}"
+        else
+            echo -e "  ${YELLOW}openspec: init skipped — run 'openspec init --tools claude' manually${NC}"
+        fi
+    fi
+else
+    echo -e "  ${YELLOW}openspec: skipped (npm/Node.js not found)${NC}"
+    echo "  To enable living specs later, run:"
+    echo "    npm i -g @fission-ai/openspec && openspec init --tools claude"
+fi
+
 echo ""
 echo -e "${GREEN}Done!${NC}"
 echo ""
