@@ -45,15 +45,17 @@ For each autotest task (`integration-tests` / `sys-tests` / `e2e-tests` /
   routed context, and the matching `### <Layer> Layer` block from the plan.
 - Tasks marked `**Parallel**: true` and not blocked → run concurrently
   (`run_in_background: true`); otherwise sequential per `Depends On`.
-- The autotester's `validator_dispatcher` PostToolUse hook lints/auto-formats each
-  Write. Test method names must match the declared happy-path scenarios so
+- The autotester's `validator_dispatcher` PostToolUse hook runs in **authoring mode**
+  (`--authoring`): for Java test files it enforces format (`spotless`) + static
+  analysis (`pmd`) but **defers compile (`maven_compile`) and coverage (`jacoco`)**.
+  Test method names must match the declared happy-path scenarios so
   `check_test_layers.py` (in `/test_run`) can find them.
 
 **Compile timing (parallel-with-Dev).** Higher-layer tests reference the service
-contract; if Dev hasn't built it yet, compile-level validators may fail. That is
-expected — authoring targets the planned contract, and full compile + run is
-deferred to `/test_run` after dev is done. Don't block authoring on missing
-service code; record such gaps in the report.
+contract; Dev may not have built it yet. By design the authoring gate **does not
+compile or run** test files — full compile + coverage + the suite run are deferred
+to `/test_run` (after dev is done). So missing service code never blocks authoring;
+record such contract gaps in the report.
 
 ## Step 3: Code review
 

@@ -21,6 +21,13 @@ Extension mapping:
   .json        → prettier
   pom.xml      → maven_compile, ossindex
   other        → no validators (skip)
+
+Authoring mode (`--authoring`, used by the Test-scope autotester):
+  Higher-layer tests are authored in parallel with Dev, so the product symbols
+  they reference may not exist yet. For Java test files (*Test.java / *IT.java)
+  this mode drops the validators that need a built product or a run — maven_compile
+  and jacoco — and keeps only the source-level gates (spotless format, pmd static
+  analysis). Full compile + coverage are deferred to /test_run. See TEST_SCOPE.md.
 """
 import json
 import logging
@@ -56,8 +63,13 @@ EXTENSION_MAP: dict[str, list[str]] = {
 }
 
 
-def get_validators_for_file(file_path: str) -> list[str]:
-    """Determine which validators to run based on file path."""
+def get_validators_for_file(file_path: str, authoring: bool = False) -> list[str]:
+    """Determine which validators to run based on file path.
+
+    When ``authoring`` is set (Test-scope autotester), Java test files skip the
+    validators that need a built product or a run (maven_compile, jacoco) and keep
+    only source-level gates (spotless, pmd) — those are deferred to /test_run.
+    """
     filename = os.path.basename(file_path)
     _, ext = os.path.splitext(file_path)
 
@@ -69,7 +81,14 @@ def get_validators_for_file(file_path: str) -> list[str]:
 
     # Special case: Java test files → add jacoco and pmd
     if ext == ".java":
-        if filename.endswith("Test.java") or filename.endswith("IT.java"):
+        is_test_file = filename.endswith("Test.java") or filename.endswith("IT.java")
+
+        if authoring and is_test_file:
+            # Relaxed compile gate: format + static analysis only; defer compile
+            # and coverage (need the built product / a run) to /test_run.
+            return ["spotless_validator.py", "pmd_validator.py"]
+
+        if is_test_file:
             validators.append("jacoco_validator.py")
         # PMD for all Java files
         validators.append("pmd_validator.py")
@@ -132,8 +151,14 @@ def main():
         print(json.dumps({}))
         return
 
+    # Authoring mode (Test-scope autotester): relax the compile/coverage gate for
+    # Java test files written in parallel with Dev.
+    authoring = "--authoring" in sys.argv
+    if authoring:
+        logger.info("Authoring mode: relaxed compile gate for Java test files")
+
     # Determine which validators to run
-    validators = get_validators_for_file(file_path)
+    validators = get_validators_for_file(file_path, authoring=authoring)
 
     if not validators:
         logger.info(f"No validators for: {file_path}")
