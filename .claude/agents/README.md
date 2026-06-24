@@ -15,6 +15,7 @@ agents/
 │   ├── developer.md            product code (sonnet)
 │   └── unit-tester.md          unit tests only (sonnet)
 ├── test/       Test scope — higher-layer autotests + run/triage
+│   ├── test-explorer.md        maps test landscape → test/test-landscape.md
 │   ├── test-analyst.md         writes test/test-model.md
 │   ├── autotester.md           integration/sys/e2e/ui/load tests (layer per task tags)
 │   ├── failure-analyzer.md     triage failures: test-side vs service-side (read-only)

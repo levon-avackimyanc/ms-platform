@@ -1,5 +1,5 @@
 ---
-description: Test scope planning. Из increment.md строит test/test-model.md (через test-analyst + explorer) и test/test-plan.md с autotest-задачами по слоям (integration/sys/e2e/ui/load), валидирует (validate_plan --scope test) и прогоняет plan-reviewer. Авторинг идёт параллельно с Dev; UNIT — не здесь.
+description: Test scope planning. Из increment.md (intent) + Dev-плана specs/*.md (контракт) строит test/test-model.md (через test-analyst + test-explorer) и test/test-plan.md с autotest-задачами по слоям (integration/sys/e2e/ui/load), валидирует (validate_plan --scope test) и прогоняет plan-reviewer. Авторинг идёт параллельно с Dev; UNIT — не здесь.
 argument-hint: "[orchestration prompt]"
 model: opus
 disallowed-tools: EnterPlanMode
@@ -42,17 +42,32 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 
 ## Variables
 
-- **INCREMENT_FILE** = `analytic/increment.md` — the **primary input** (the same
-  increment Dev plans from). If missing → stop and ask to run `/analyze` first.
+- **INCREMENT_FILE** = `analytic/increment.md` — the **intent** input (FR/NFR/
+  acceptance — the *why*). If missing → stop and ask to run `/analyze` first.
+- **DEV_PLAN** = `specs/*.md` — the **primary technical contract** (real endpoints,
+  error shapes, DTOs, **deferral decisions**) that autotests bind to. If absent, Dev
+  planning is not done yet — author against the increment intent and **re-sync when
+  the plan lands** (see Step 0).
+- **TEST_LANDSCAPE** = `test/test-landscape.md` — existing test landscape from
+  `test-explorer` (suites, infra, runners, coverage gaps).
 - **ORCHESTRATION_PROMPT** = `$1` — (optional) guidance for layer/team/task structure.
-- **TEST_MODEL** = `test/test-model.md` — authoring model (produced in Step 2).
+- **TEST_MODEL** = `test/test-model.md` — authoring model (produced in Step 1).
 - **PLAN_OUTPUT** = `test/test-plan.md`.
 - **TEAM_MEMBERS** = `.claude/agents/**/*.md`.
 
 ## Instructions
 
 - **PLANNING ONLY** — no product code, no test code, no git. Read-only helper
-  agents (`explorer`, `test-analyst`, `plan-reviewer`) may be spawned.
+  agents (`test-explorer`, `test-analyst`, `plan-reviewer`) may be spawned.
+- **Bind to the Dev contract.** Autotests bind to `specs/*.md` (real endpoints/
+  shapes/deferrals), not to the increment's wording. Where the plan refines the
+  increment (e.g. paths `/links` → `/api/links`), follow the plan.
+- **Reconcile increment ↔ plan, don't author blind.** If the Dev plan **defers or
+  contradicts** an increment acceptance criterion (e.g. an AC marked out-of-scope),
+  do **NOT** author a test for the deferred behavior — surface it as a
+  **spec-divergence** (`AskUserQuestion`: reconcile the increment via `/analyze`, or
+  confirm the AC is out-of-scope for this round). This catches the divergence here,
+  not as a false service-side bug at `/test_run`.
 - **UNIT is NOT in scope** — it is owned by Dev. This plan declares only the higher
   layers (**Integration / Sys / E2E / UI / Load**). Do not add a `unit-tests` task
   or a live Unit Layer (if you mention Unit at all, mark it `Skipped — owned by Dev`).
@@ -66,8 +81,8 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
   final `validate-all` task (`validator`). The combined `write-tests` task is forbidden.
 - **`**Stack**` field** drives context routing (same catalog as Dev). Use the
   trigger keywords for the layer, e.g. `Java testcontainers integration mockmvc`,
-  `Playwright e2e ui`, `k6 load test`. Reuse the tags `explorer` wrote into
-  `explore/module-map.md`.
+  `Playwright e2e ui`, `k6 load test`. Reuse the tags `test-explorer` wrote into
+  `test/test-landscape.md`.
 - **Relevant Files**: list only files that **already exist** (increment, test-model,
   existing test config/dirs). Source-under-test may not exist yet (parallel Dev) —
   reference it in task bodies, not in Relevant Files. New test files go under
@@ -75,20 +90,29 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 
 ## Workflow
 
-0. **Resolve input** — confirm `analytic/increment.md` exists (`ls`); read it
+0. **Resolve inputs** — confirm `analytic/increment.md` exists (`ls`); read it
    (+ `original_task.txt`, `review-report.json` for context). If absent → stop and
-   ask for `/analyze`. State you are in Test-scope planning.
+   ask for `/analyze`. Then read the **Dev plan** (`specs/*.md`): it is the technical
+   contract autotests bind to. **Contract-frozen check** — the plan should have
+   passed `plan-reviewer` (Dev planning done). If no plan exists yet, note that
+   authoring binds to increment intent and **must re-sync once the plan lands**.
+   State you are in Test-scope planning.
+0.5 **Reconcile increment ↔ plan.** Compare the increment's acceptance criteria
+   against the Dev plan. If the plan **defers or contradicts** any AC, stop and
+   surface the **spec-divergence** (`AskUserQuestion`): reconcile via `/analyze`, or
+   confirm out-of-scope. Do not plan tests for deferred behavior.
 1. **Test model (analytic) — first.** Spawn **`test-analyst`**
-   (`subagent_type: "test-analyst"`, foreground): from the increment (+ any Dev
-   code + build files) it decides the **applicable layers** and writes
-   `test/test-model.md` (patterns/data/infra/runner per layer). If it returns Open
-   questions, resolve them (`AskUserQuestion`) and re-run. *(Board order:
-   analytic → Expl.)*
-2. **Explore & tag autotest areas — then.** Spawn `explorer` agent(s)
-   (`subagent_type: "explorer"`, parallel for multi-module) to tag the project by
-   test type for the layers the model declared (they emit `e2e`/`ui`/`load` tags
-   too) → `explore/module-map.md`; reuse if fresh. These tags become each autotest
-   task's `**Stack**`.
+   (`subagent_type: "test-analyst"`, foreground): from the increment + **the Dev
+   plan `specs/*.md`** (+ build files + landscape if present) it decides the
+   **applicable layers** and writes `test/test-model.md` (patterns/data/infra/runner
+   per layer). If it returns Open questions, resolve them (`AskUserQuestion`) and
+   re-run. *(Board order: analytic → Expl.)*
+2. **Map the test landscape — then.** Spawn **`test-explorer`** agent(s)
+   (`subagent_type: "test-explorer"`, parallel via `ASSIGNED_AREAS` for a large
+   suite) to map the existing test landscape and tag autotest areas by test type for
+   the layers the model declared → `test/test-landscape.md`; reuse if fresh. These
+   tags become each autotest task's `**Stack**`, and its coverage gaps prioritise
+   what to author.
 3. **Design the plan** — from the test model, decide layers, the autotest tasks per
    layer, dependencies, and the `## Test Infrastructure (User-Declared)` blocks
    (live higher layers, each with Files glob / Infra signature / ≥1 named scenario /
@@ -117,7 +141,7 @@ Follow this EXACT structure (replace `<...>`):
 <what "tested" means when this plan is complete — which layers, which behaviors>
 
 ## Relevant Files
-<existing files only: analytic/increment.md, test/test-model.md, existing test config/dirs. Why each.>
+<existing files only: analytic/increment.md, specs/*.md (Dev plan / contract), test/test-model.md, test/test-landscape.md, existing test config/dirs. Why each.>
 
 ### New Files
 <the autotest files to create, per layer>

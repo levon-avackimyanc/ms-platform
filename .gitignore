@@ -109,6 +109,10 @@ analytic/
 # ---------- Dev scope working artifacts ----------
 explore/
 
+# ---------- Test scope working artifacts ----------
+# test-model.md / test-plan.md / bugs/ / test code are committed; landscape is ephemeral
+test/test-landscape.md
+
 # ---------- Misc ----------
 *.db
 *.sqlite
