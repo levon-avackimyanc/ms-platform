@@ -8,13 +8,20 @@ are Russian; this doc is English to match `CLAUDE.md` and `.claude/refs/`.)
 
 ```
 Analytic scope          Dev scope                              Test scope
-/analyze        →   /plan_w_team → /smart_build → /merge_gate   →  (separate
-(increment.md)      (specs/*.md)   (code+unit tests) (git commit)    phase, TBD)
+/analyze        →   /plan_w_team → /smart_build → /merge_gate   ∥  parallel,
+(increment.md)      (specs/*.md)   (code+unit tests) (git commit)    coupled via
+                         │                                           specs/*.md
+                         └──── frozen contract ───► /test_plan → /test_build → /test_run
+                                                    (see TEST_SCOPE.md)
 ```
 
 Boundaries:
 - Dev scope writes **product code + unit tests only**. Integration/E2E are owned
   by Test scope.
+- **Test scope is coupled, not independent**: it reads the Dev plan `specs/*.md`
+  (the frozen technical contract) and authors higher-layer autotests **in parallel**
+  with the Dev build. Test *execution* (`/test_run`) depends on Dev code being done.
+  See [`TEST_SCOPE.md`](./TEST_SCOPE.md).
 - **`/merge_gate` is the only command that runs `git commit` / `git merge`.**
   `/plan_w_team` and `/smart_build` never touch git history.
 - Sub-agents have **no Task tools**; the orchestrator owns the task ledger.

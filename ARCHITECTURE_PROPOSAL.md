@@ -76,15 +76,37 @@ Loop при fail валидатора или ревьюера: `business-analyst
 Чего **сознательно не делаем на старте**:
 - Параллельные worktree per dev-agent. `/plan_w_team` оркестрирует задачи последовательно через TaskList + owner — для MVP это достаточно. Worktree-параллелизм рассматриваем как будущую опцию.
 
-#### Test_scope (lite) — **простой запускатор + analyzer**
+#### Test_scope — **связан с Dev, идёт параллельно** (полный, не lite)
 
-В отличие от прежней концепции «отдельный полный mirror Dev_scope», в новой архитектуре большая часть тестов **пишется уже в рамках `/plan_w_team`** (mandatory integration layer + test pyramid). Поэтому отдельный Test_scope сжимается до:
+> Актуальная редакция (2026-06-24). Прежняя «lite»-концепция (Test = только
+> `/test_run` + `analyzer`, а тесты пишутся внутри `/plan_w_team`) устарела.
+> Полный контракт — в [`.claude/TEST_SCOPE.md`](./.claude/TEST_SCOPE.md).
 
-1. Команда **`/test_run`** — запускает declared runner'ы из последнего плана/инкремента в test-репозитории (если он отдельный) или прямо в текущем (если совпадает с `Files glob` плана). Логи прогона → `test/runs/<timestamp>/logs.ndjson`.
-2. Агент **`analyzer`** (Opus) — анализирует упавшие тесты, выносит verdict `bug_in_test` / `bug_in_product` с confidence. При `bug_in_product` — пишет **`bug.md`** в ветку инкремента.
-3. **BUG-routing:** `bug.md` становится новым входом для `/plan_w_team`, который запускает доработку Dev_scope (полный цикл от системного анализа).
+Test_scope владеет **авторингом + прогоном/анализом** автотестов высоких слоёв
+(Integration / Sys / E2E / UI / Load); **UNIT остаётся в Dev_scope**. Он **не
+независим**: это **отдельная ветка, связанная с Dev через план** и идущая
+**параллельно** разработке.
 
-Уровни выше integration (system / e2e UI / load) — добавляем как новые «layers» в `Test Infrastructure (User-Declared)` плана, когда они понадобятся; отдельной инфраструктуры под них не строим.
+- **Связь = Dev-план `specs/*.md`.** Технический контракт (реальные эндпоинты,
+  формы ошибок, отложенные AC) рождается в плане, не в `increment.md`. `/test_plan`
+  и `test-analyst` читают план как первичный вход; `increment.md` — это intent.
+  Расхождение increment↔plan ловится на `/test_plan` как **spec-divergence**, а не
+  как ложный service-баг на прогоне.
+- **Свой планировщик и свой explorer.** `/test_plan` + `test-analyst` +
+  **`test-explorer`** (карта тест-ландшафта → `test/test-landscape.md`). Test **не**
+  вливается в `/plan_w_team`; два планировщика, **два ledger'а**, синхронизация по
+  milestone **«contract frozen»**.
+- **Параллельный авторинг.** `/test_build` гоняет `autotester`'ов **одновременно с
+  Dev-build**. Compile-гейт в этом режиме **смягчён** (`--authoring`: формат +
+  статика; компиляция/покрытие отложены), поэтому ссылки на ещё не собранный код не
+  блокируют авторинг.
+- **Прогон/анализ (Flow B).** `/test_run` — **человеко-запускаемый после готовности
+  кода**: Exec → `failure-analyzer` (test-side / service-side / unclear) →
+  {фикс теста `autotester`'ом | баг `bug-reporter`'ом в `test/bugs/`}.
+- **Гейт.** `/test_gate` — единственная Test-команда, трогающая git.
+
+BUG-routing: service-side баг (`test/bugs/*.md`) становится входом для нового
+`/plan_w_team` — полный Dev-цикл доработки.
 
 ### 7. Refs (бывший tags registry)
 
