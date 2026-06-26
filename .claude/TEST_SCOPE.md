@@ -1,74 +1,71 @@
 # Test Scope — design / contract
 
-> Status: **revised design (2026-06-24).** Test scope is now **coupled to and
-> parallel with Dev**, not an independent fragment. Coupling is via the **Dev plan
-> (`specs/*.md`)** as the authoritative technical contract; Dev and Test run as
-> **two parallel pipelines with separate ledgers**, synchronized by the plan + a
-> **"contract frozen"** milestone.
+> Status: **revised design (2026-06-26).** Test scope is **independent of and fully
+> parallel with Dev**. Both scopes consume `analytic/increment.md` directly and run
+> as **two independent pipelines with separate ledgers, from t=0** — there is **no
+> contract-frozen gate** and Test does **not** bind to the Dev plan. Test may make
+> **different technical decisions** than Dev; divergence between test assumptions and
+> the built service is reconciled at `/test_run` by `failure-analyzer`.
 >
 > Already in place: commands `/test_plan`, `/test_build`, `/test_run`,
-> `/test_gate`; agents `test-analyst`, `autotester`, `failure-analyzer`,
-> `bug-reporter`. **Changes introduced by this revision** (pending implementation)
-> are marked **⟳**.
+> `/test_gate`; agents `test-analyst`, `test-explorer`, `autotester`,
+> `failure-analyzer`, `bug-reporter`.
+>
+> Note: this **supersedes** the 2026-06-24 "coupled to the Dev plan / contract-frozen"
+> revision, which is no longer in effect.
 
 Test scope owns **authoring + execution/analysis** of higher-layer autotests:
 **Integration / Sys-test / E2E / UI / load**. **UNIT stays with Dev scope.**
 
-## Relationship to Dev — coupled, parallel, separately owned
+## Relationship to Dev — independent, parallel, separately owned
 
-The previous design made Test an independent sibling of Dev: both read only
-`analytic/increment.md`, blind to each other. That produced false service-side
-bugs when the increment diverged from what Dev actually built (e.g. a deferred
-acceptance criterion, or API paths refined during planning). This revision makes
-Test **dependent on Dev's plan** while keeping the two pipelines **parallel and
-separately owned**.
+Test scope is an **independent sibling** of Dev: **both read `analytic/increment.md`**
+(the intent) and run **in parallel from t=0**. Test does **not** bind to the Dev plan
+`specs/*.md` and may make **different technical decisions** than Dev. The genuine
+coupling is only at **run time**: `/test_run` executes against the built service.
 
 Principles:
 
-- **Dependent on the Dev plan, not independent.** ⟳ Primary **technical** input =
-  `specs/*.md` — the agreed contract: real endpoints, error shapes, DTOs, and
-  **deferral decisions**. `analytic/increment.md` stays the **intent / why**; the
-  Dev plan is the **what/how** the autotests bind to.
-- **Own planner, own explorer.** ⟳ Test does **not** fold into `/plan_w_team`. It
-  keeps its own planner (`/test_plan` + `test-analyst`) and its own
-  **`test-explorer`** (test landscape, not product module map). Two focused
-  planners, **two ledgers**.
-- **Parallel authoring.** `/test_plan` + `/test_build` run **concurrently with the
-  Dev build**, reading the plan as it stabilizes.
+- **Bound to the increment intent, not the Dev plan.** Primary input =
+  `analytic/increment.md` (FR/NFR/acceptance — the *why*). Test derives its **own**
+  technical approach from the intent. `specs/*.md`, if present, is a **non-binding
+  cross-reference** only.
+- **Own planner, own explorer.** Test does **not** fold into `/dev_plan`. It keeps
+  its own planner (`/test_plan` + `test-analyst`) and its own **`test-explorer`**
+  (test landscape, not product module map). Two focused planners, **two ledgers**.
+- **Parallel from t=0.** `/test_plan` + `/test_build` run **concurrently with Dev**
+  with no wait on a Dev milestone — there is no contract-frozen gate.
 - **Real runtime dependency.** Test **execution** (`/test_run`) depends on Dev code
-  being done — that is the genuine Test→Dev dependency (human-launched, as before).
-- **Sync = "contract frozen" milestone.** ⟳ Test authoring tasks are gated on the
-  Dev plan's contract being **frozen** (plan passed `plan-reviewer`), **not** on
-  individual Dev task-ids. If the contract changes afterward, Test re-plans only
-  the affected slice.
-- **Divergence caught early.** Because Test binds to the plan, an
-  **increment ↔ plan** mismatch (e.g. a deferred AC) surfaces at `/test_plan` as a
-  **spec-divergence to reconcile** — not as a false service-side bug at `/test_run`.
+  being done — that is the only genuine Test→Dev dependency (human-launched, as before).
+- **Divergence reconciled at run time.** If the built service differs from what the
+  tests assumed, `/test_run`'s `failure-analyzer` classifies each failure as
+  **test-side** (autotester fixes) or **service-side** (bug-reporter files a bug).
+  No planning-time Dev-plan comparison.
 - **`/test_gate` is the only Test command that touches git** (mirrors `/merge_gate`).
 
-## Where it sits (two coupled pipelines)
+## Where it sits (two independent parallel pipelines)
 
 ```
-                ┌─ Dev:  /plan_w_team → /smart_build → /merge_gate ─► code + unit
-analytic/       │                          │
-increment.md ──►┤                          │ specs/*.md  (frozen contract)
-                │                          ▼  (read, not duplicated)
+                ┌─ Dev:  /dev_plan → /smart_build → /merge_gate ─► code + unit
+analytic/       │
+increment.md ──►┤   (same input, no cross-binding, both spawn at t=0)
+                │
                 └─ Test: /test_plan → /test_build ───────────────► higher-layer autotests
-                         (test-explorer +              ∥ parallel with Dev build
+                         (test-explorer +              ∥ parallel with Dev (independent)
                           test-analyst)                          │
                                                                  ▼
                                        /test_run  (after Dev code is done)
                                        Exec → Analyzer → {fix test | file bug} → /test_gate
 ```
 
-## Inputs ⟳
+## Inputs
 
 | Input | Role |
 |---|---|
-| `specs/*.md` (Dev plan) | **primary technical contract** — endpoints, error shapes, DTOs, deferrals. Autotests bind here. |
-| `analytic/increment.md` | **intent** — FR / NFR / acceptance (the *why*). Cross-checked vs the plan; mismatch → spec-divergence, surfaced at `/test_plan`. |
-| `test/test-landscape.md` ⟳ | from the dedicated `test-explorer` — existing suites, test infra, runners, coverage gaps. |
-| Dev code | consumed at **compile / run** time only — authoring binds to the contract, compilation/execution bind to the code. |
+| `analytic/increment.md` | **primary input (intent)** — FR / NFR / acceptance (the *why*). Test binds here and derives its own technical approach. |
+| `specs/*.md` (Dev plan) | **optional, non-binding cross-reference** if it happens to exist. Test may differ from it. Divergence reconciled at `/test_run`, not at planning. |
+| `test/test-landscape.md` | from the dedicated `test-explorer` — existing suites, test infra, runners, coverage gaps. |
+| Dev code | consumed at **compile / run** time only — authoring binds to the intent, compilation/execution bind to the code. |
 
 ## The pyramid = context-routing taxonomy
 
@@ -90,7 +87,7 @@ mechanism as Dev), and `context_router.py` loads the matching testing refs.
 - **New tags/refs**: `load` (gatling / k6 / jmeter / locust → `refs/*-load.md`),
   and `sys-test` / a distinct `ui` if needed.
 
-## Test model (now plan-aware) ⟳
+## Test model (intent-driven)
 
 The artifact between exploration and planning. It captures **how autotests are
 authored in this project**, per layer:
@@ -100,26 +97,33 @@ authored in this project**, per layer:
 - **infra** per layer (Testcontainers / WireMock / EmbeddedKafka / Playwright / …);
 - **runner command** per layer.
 
-⟳ Built from `analytic/increment.md` (intent) + **`specs/*.md` (the frozen
-contract)** + `test-explorer`'s `test/test-landscape.md` + project testing refs.
-It is the contract the autotest authors follow. → `test/test-model.md`.
+Built from `analytic/increment.md` (intent) + `test-explorer`'s
+`test/test-landscape.md` + project testing refs (and the Dev plan only as an optional
+cross-reference, if present). It is the contract the autotest authors follow.
+→ `test/test-model.md`.
 
 ## Commands (skills)
 
 | Command | Flow | Does | Output |
 |---|---|---|---|
-| `/test_plan` | A | ⟳ reads `specs/*.md` + `increment.md` + `test-explorer` landscape → **test model** → plan (autotest tasks per layer, `blockedBy` = **contract-frozen**) → plan-review. Flags increment↔plan divergence. | `test/test-landscape.md`, `test/test-model.md`, `test/test-plan.md` |
-| `/test_build` | A | `autotester` writes tests per layer (router → testing refs) → code-review (review→Plan loop). **Runs parallel with the Dev build.** ⟳ relaxed compile gate during authoring (see Orchestration). | test code |
+| `/build_scopes` | A | **Parallel front door** (shared with Dev) — thin Conductor spawns `test-conductor` ∥ `dev-conductor` from the increment, relays bubble-up HITL. | (delegates) |
+| `/test_plan` | A | reads `increment.md` + `test-explorer` landscape → **test model** → plan (autotest tasks per layer) → plan-review. No Dev-plan binding, no contract-frozen gate. | `test/test-landscape.md`, `test/test-model.md`, `test/test-plan.md` |
+| `/test_build` | A | `autotester` writes tests per layer (router → testing refs) → code-review (review→Plan loop). **Runs parallel with Dev from t=0.** Relaxed compile gate during authoring (see Orchestration). | test code |
 | `/test_run` | B | **Human-launched after Dev is done.** Exec → Analyzer triage → {fix-test loop \| **Bug**} | run report, `test/bugs/*.md` |
 | `/test_gate` | — | HITL: show run results + bugs + diff → on approve commit/merge | git commit |
 
 ## Agents
 
-- **⟳ New: `test-explorer`** — dedicated explorer for Test scope. Maps the existing
+- **`test-conductor`** — Test scope conductor (opus). Runs the authoring pipeline
+  autonomously in the background under `/build_scopes` — embeds `/test_plan` +
+  `/test_build`, spawning `test-explorer`/`test-analyst`/`autotester`/`code-reviewer`
+  as its own children. Reads `increment.md`; interviews **bubble up** to the main
+  thread. Authoring only — `/test_run` stays human-launched.
+- **`test-explorer`** — dedicated explorer for Test scope. Maps the existing
   **test landscape** (suites, infra, runners, coverage gaps) and emits
   `e2e`/`ui`/`load`/`integration` **test-type tags** → `test/test-landscape.md`.
-  Replaces the previous reuse of the Dev `explorer` for Test.
-- **⟳ `test-analyst`** — now consumes **`specs/*.md`** alongside `increment.md`.
+- **`test-analyst`** — consumes `increment.md` as its primary input (the Dev plan
+  only as an optional cross-reference).
 - **`autotester`** — writes autotests for any higher layer (the layer is selected
   per task via its `**Stack**` tags; parallel instances are `autotest_1/_2`).
 - **`failure-analyzer`** (the Analyzer), **`bug-reporter`** (the Bug node) — unchanged.
@@ -127,25 +131,21 @@ It is the contract the autotest authors follow. → `test/test-model.md`.
   `code-reviewer` (reviews the test diff), `validator`.
 - **Models** (mirror Dev policy): authors = sonnet, reviewers/analyst = opus.
 
-## Orchestration & sync ⟳
+## Orchestration & sync
 
 - **Two ledgers.** Dev owns its task ledger, Test owns its own. No shared task-id
-  space; the coupling is the **plan artifact**, not a merged ledger.
-- **Authoring parallelism.** Test authoring tasks are `blockedBy` the
-  **contract-frozen** milestone (Dev plan passed `plan-reviewer`), not by Dev code
-  tasks — so Test authoring proceeds concurrently with the Dev build.
+  space and no shared artifact contract — the two pipelines are independent.
+- **Authoring parallelism.** Test planning + authoring start at **t=0**, in parallel
+  with Dev, gated on nothing in Dev (no contract-frozen milestone).
 - **Compile-coupling** (the real boundary). Higher-layer test code (`@SpringBootTest`,
   references to product classes/endpoints) needs product symbols to compile.
   Resolution:
-  - ⟳ **Relaxed compile gate** for test files during authoring: format/lint apply
+  - **Relaxed compile gate** for test files during authoring: format/lint apply
     (`spotless`/`eslint`/`ruff`), but **full `maven_compile` is deferred** to the
-    end of `/test_build` and to `/test_run`.
-  - **Fine-grained:** a test slice whose contract is stable can be authored even
-    before its product code lands; it compiles once the matching Dev task is done.
+    end of `/test_build` and to `/test_run`. So referencing not-yet-built product
+    code never blocks authoring.
 - **Execution dependency.** `/test_run` is human-launched once Dev code is done —
   no automatic Dev→Test signal.
-- **Re-plan on contract change.** If the Dev plan changes after freeze, `/test_plan`
-  re-plans only the affected autotest slice (the rest stands).
 
 ## Hooks / validators
 
@@ -154,7 +154,7 @@ It is the contract the autotest authors follow. → `test/test-model.md`.
   directly.
 - **`validate_test_plan.py`** — like `validate_plan.py`, but the layers the test
   model declares are mandatory; no `unit-tests` task (UNIT is Dev's).
-- Autotest authors get the `validator_dispatcher.py` PostToolUse hook, ⟳ with the
+- Autotest authors get the `validator_dispatcher.py` PostToolUse hook, with the
   **relaxed compile gate** above during authoring.
 - Static analysis (`Spotbugs`, `Jacoco` coverage, `Sonar`) → inputs to
   `failure-analyzer`.
@@ -179,7 +179,7 @@ It is the contract the autotest authors follow. → `test/test-model.md`.
 
 | Path | Producer | Tracked |
 |---|---|---|
-| `test/test-landscape.md` ⟳ | `test-explorer` | gitignored (like `explore/module-map.md`) |
+| `test/test-landscape.md` | `test-explorer` | gitignored (like `explore/module-map.md`) |
 | `test/test-model.md` | `test-analyst` | committed |
 | `test/test-plan.md` | `/test_plan` | committed |
 | `test/bugs/*.md` | `bug-reporter` | committed |
@@ -187,17 +187,17 @@ It is the contract the autotest authors follow. → `test/test-model.md`.
 
 ## Decisions (revised)
 
-1. ⟳ **Coupling via the Dev plan** `specs/*.md` (not increment-only). `increment.md`
-   stays the intent; the plan is the technical contract autotests bind to.
-2. ⟳ **Separate Test planner + dedicated `test-explorer`** — Test is **not** folded
-   into `/plan_w_team`.
-3. ⟳ **Two ledgers**, synchronized by the plan + a **"contract frozen"** milestone
-   (not a shared ledger / merged task space).
-4. ⟳ **Test authoring ∥ Dev build**; **Test run depends on Dev code done**
+1. **Bound to `analytic/increment.md`** (intent), **not** to the Dev plan. Test
+   derives its own technical approach; `specs/*.md` is an optional cross-reference.
+2. **Separate Test planner + dedicated `test-explorer`** — Test is **not** folded
+   into `/dev_plan`.
+3. **Two independent ledgers**, no shared task space and **no contract-frozen
+   milestone** — the pipelines do not synchronize on a Dev artifact.
+4. **Test planning + authoring ∥ Dev from t=0**; **Test run depends on Dev code done**
    (human-launched `/test_run`, no automatic signal).
-5. ⟳ **increment ↔ plan divergence** is handled at `/test_plan` as a
-   **spec-reconcile** signal, not as a service-side bug at run time.
-6. ⟳ **Relaxed compile gate** for test files during authoring; full compile at
+5. **Dev/Test divergence** is reconciled at `/test_run` by `failure-analyzer`
+   (test-side vs service-side), **not** at planning time.
+6. **Relaxed compile gate** for test files during authoring; full compile at
    end of `/test_build` / at `/test_run`.
 7. **load** = model-driven layer (included when the increment has perf/NFR needs),
    not blanket-mandatory — like E2E is included only when there's UI.

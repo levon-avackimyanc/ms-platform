@@ -7,7 +7,7 @@ Optional integration with [@fission-ai/openspec](https://www.npmjs.com/package/@
 OpenSpec maintains living specs for your project — requirements (MUST/SHOULD/MAY), scenarios (Given/When/Then), and design decisions. When integrated into the pipeline, it connects plans to specs and tracks implementation progress.
 
 ```
-/plan_w_team "add dark mode"
+/dev_plan "add dark mode"
     ↓
 Step 2:  Read existing specs → inform interview questions
 Step 13: Create change artifacts → openspec/changes/add-dark-mode/
@@ -33,7 +33,7 @@ This creates:
 
 ## Integration Points
 
-### 1. Explore (plan_w_team Step 2)
+### 1. Explore (dev_plan Step 2)
 
 Reads existing specs before the requirements interview:
 
@@ -45,7 +45,7 @@ openspec list --changes --json 2>/dev/null
 
 Findings inform Interview Round 1 — the planner asks about conflicts with existing requirements, whether to extend or modify specs, and overlapping active changes.
 
-### 2. Propose (plan_w_team Step 13)
+### 2. Propose (dev_plan Step 13)
 
 After plan review passes, creates change artifacts:
 
@@ -83,5 +83,5 @@ The core pipeline works identically without OpenSpec.
 
 ## Key Files
 
-- `.claude/commands/plan_w_team.md` — Steps 2, 13 (explore + propose)
+- `.claude/commands/dev_plan.md` — Steps 2, 13 (explore + propose)
 - `.claude/commands/smart_build.md` — Steps 0, 4 (init + incremental tracking)

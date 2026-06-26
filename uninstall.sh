@@ -49,7 +49,7 @@ OWNED_FILES=(
     .claude/agents/team/validator.md
     # commands
     .claude/commands/all_tools.md
-    .claude/commands/plan_w_team.md
+    .claude/commands/dev_plan.md
     .claude/commands/plan.md
     .claude/commands/smart_build.md
     .claude/commands/update_status_line.md

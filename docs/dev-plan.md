@@ -1,6 +1,6 @@
-# Plan With Team
+# Dev Plan
 
-`/plan_w_team` generates implementation plans for multi-agent execution. It analyzes requirements, interviews the user, reads the codebase, and produces a spec document that `/smart_build` can execute with a team of builder agents.
+`/dev_plan` generates implementation plans for multi-agent execution. It analyzes requirements, interviews the user, reads the codebase, and produces a spec document that `/smart_build` can execute with a team of builder agents.
 
 ## Workflow
 
@@ -116,7 +116,7 @@ Stack: "Java Spring Boot controller exception error handling"
 
 ## Plan Review (Step 12)
 
-After saving the plan, `/plan_w_team` runs a two-stage review gate before proceeding to OpenSpec propose. See [Plan Review](plan-review.md) for details on the 8 criteria.
+After saving the plan, `/dev_plan` runs a two-stage review gate before proceeding to OpenSpec propose. See [Plan Review](plan-review.md) for details on the 8 criteria.
 
 ## Stack Validation (Check 7)
 
@@ -164,7 +164,7 @@ The generated plan includes these sections:
 
 ## Key Files
 
-- `.claude/commands/plan_w_team.md` — planner prompt with 15-step workflow, catalog, and plan format
+- `.claude/commands/dev_plan.md` — planner prompt with 15-step workflow, catalog, and plan format
 - `.claude/hooks/validators/validate_plan.py` — structural validator (8 checks including Stack)
 - `.claude/agents/team/plan-reviewer.md` — Opus critic agent (Step 12)
 - `.claude/hooks/context_router.py` — keyword router that Stack fields feed into

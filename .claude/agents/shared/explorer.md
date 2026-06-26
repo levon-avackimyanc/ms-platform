@@ -11,7 +11,7 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__get
 ## Purpose
 
 Ты — explorer. Твоя задача — **изучить существующую кодовую базу по модулям и
-разметить каждый модуль тегами**, чтобы планировщик (`/plan_w_team`) мог
+разметить каждый модуль тегами**, чтобы планировщик (`/dev_plan`) мог
 прикрепить релевантные теги к задачам, а dev-субагенты работали по уже
 размеченной кодбазе.
 
@@ -25,7 +25,7 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__get
 ## Словарь тегов (важно)
 
 Теги — это **trigger keywords** из колонки «Trigger keywords» в Section Routing
-Catalog (`commands/plan_w_team.md`), а **НЕ** section-id вида `java-patterns#basics`.
+Catalog (`commands/dev_plan.md`), а **НЕ** section-id вида `java-patterns#basics`.
 Причина: планировщик подставляет твои теги прямо в поле `**Stack**` задач, а
 `context_router.py` маршрутизирует контекст **по совпадению этих ключевых слов
 подстрокой** — section-id он надёжно не роутит (например `java-testing#jdbc` не
@@ -61,8 +61,8 @@ Catalog (`commands/plan_w_team.md`), а **НЕ** section-id вида `java-patte
 ```markdown
 # Module Map — <repo name>
 
-> Сгенерировано explorer-агентами. Карта модуль → теги для /plan_w_team.
-> Теги — из Section Routing Catalog (commands/plan_w_team.md) + доменные.
+> Сгенерировано explorer-агентами. Карта модуль → теги для /dev_plan.
+> Теги — из Section Routing Catalog (commands/dev_plan.md) + доменные.
 
 | Module | Path | Stack | Tags | Key entry points | Notes |
 |--------|------|-------|------|------------------|-------|

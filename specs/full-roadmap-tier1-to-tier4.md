@@ -44,7 +44,7 @@ Phased implementation following the research-backed principle: **"1 iteration wi
 - `.claude/agents/context-router.md` — Haiku-based semantic context router
 - `.claude/agents/meta-agent.md` — Agent configuration generator
 - `.claude/commands/smart_build.md` — Semantic context routing workflow
-- `.claude/commands/plan_w_team.md` — Team orchestration planning
+- `.claude/commands/dev_plan.md` — Team orchestration planning
 - `.claude/hooks/validators/validator_dispatcher.py` — Smart validator dispatch (✅ Tier 1.1 DONE)
 - `.claude/hooks/section_loader.py` — Section-based reference loading
 - `.claude/refs/java-patterns.md` — Java code standards (816 lines, sectioned)
@@ -292,7 +292,7 @@ Research-grade implementations:
 - **Assigned To**: builder-architecture
 - **Agent Type**: builder
 - **Parallel**: true (can run alongside tier2-skills)
-- Update `.claude/commands/plan_w_team.md` to document worktree usage in Task tool:
+- Update `.claude/commands/dev_plan.md` to document worktree usage in Task tool:
   ```yaml
   Task({
     description: "Build feature X",
@@ -419,7 +419,7 @@ Research-grade implementations:
     - Keywords: "fix typo", "update text", "rename" → simple
     - Default: sonnet (best cost/quality ratio)
   - Logs routing decisions to `logs/model_routing.log`
-- Update plan_w_team.md to recommend model routing in orchestration
+- Update dev_plan.md to recommend model routing in orchestration
 - Research: TRAE/Devlo SWE-bench pattern — generate patches with multiple models, pick best
 
 ### 13. Add Adaptive Orchestration (Tier 3.3)
@@ -622,7 +622,7 @@ Research-grade implementations:
 - [ ] `.claude/memory/` directory exists with template files
 - [ ] worktree_cleanup.py hook exists and is syntactically valid
 - [ ] task_completed.py hook exists and processes JSON input
-- [ ] plan_w_team.md documents worktree isolation pattern
+- [ ] dev_plan.md documents worktree isolation pattern
 
 ### Tier 3 (Advanced Patterns)
 - [ ] critic.md agent exists with read-only constraints

@@ -153,7 +153,7 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 4. OpenSpec (optional — living specs for /plan_w_team + /smart_build)
+# 4. OpenSpec (optional — living specs for /dev_plan + /smart_build)
 # ─────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}OpenSpec (optional)${NC}"
@@ -167,7 +167,7 @@ if command -v npm &> /dev/null; then
         echo -e "  ${YELLOW}openspec: skipped (npm install failed)${NC}"
     fi
 
-    # Initialize OpenSpec in this project so /plan_w_team explore/propose
+    # Initialize OpenSpec in this project so /dev_plan explore/propose
     # and /smart_build task-tracking steps activate (otherwise they skip).
     if command -v openspec &> /dev/null; then
         if [ -d "openspec" ]; then

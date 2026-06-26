@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/a-simeshin/claude-code-hooks-master
 ```mermaid
 flowchart TB
     subgraph Commands
-        plan["/plan_w_team"]
+        plan["/dev_plan"]
         smart["/smart_build"]
     end
 
@@ -83,7 +83,7 @@ This fork extends [@disler](https://github.com/disler)'s original repository.
 | Feature | What it does | vs Original | Docs |
 |---------|-------------|-------------|------|
 | **Context Routing** | Keyword-based section routing — loads only relevant refs per task, zero LLM cost | Original loads all refs into context | [docs/context-routing.md](docs/context-routing.md) |
-| **Plan With Team** | Two-round interview + Section Routing Catalog + Testing Strategy + 8-check validation | No structural validation in original | [docs/plan-w-team.md](docs/plan-w-team.md) |
+| **Dev Plan** | Two-round interview + Section Routing Catalog + Testing Strategy + 8-check validation | No structural validation in original | [docs/dev-plan.md](docs/dev-plan.md) |
 | **Testing Strategy** | Enforced 80/15/5 test pyramid (unit / integration-API / UI e2e), dedicated `write-tests` task | Not in original | [docs/testing-strategy.md](docs/testing-strategy.md) |
 | **Plan Review** | Two-stage gate before build: structural validator + 8-criteria Opus architect critic | Not in original | [docs/plan-review.md](docs/plan-review.md) |
 | **Context7** | Optional live documentation lookup for any library via MCP | Not in original | [docs/context7.md](docs/context7.md) |
@@ -101,7 +101,7 @@ Compatible with any project that drops its own `CLAUDE.md` in the root: the `bui
 
 | CLAUDE.md section | Enforced by | Strength |
 |-------------------|-------------|----------|
-| **§1 Think Before Coding** — assumptions, ambiguity, tradeoffs | `plan_w_team` Interview Round 1 + Round 2 (`AskUserQuestion`); plan-reviewer criteria #1 Problem Alignment, #3 Questions Gap | Strong — formalized gate |
+| **§1 Think Before Coding** — assumptions, ambiguity, tradeoffs | `dev_plan` Interview Round 1 + Round 2 (`AskUserQuestion`); plan-reviewer criteria #1 Problem Alignment, #3 Questions Gap | Strong — formalized gate |
 | **§2 Simplicity First** — minimum code, no speculative abstractions | plan-reviewer criterion #5 Overengineering — explicit FAIL | Strong — gate |
 | **§3 Surgical Changes** — touch only what's needed, no scope creep | plan-reviewer criterion #9 Surgical Scope (pre-build); `check_diff_scope.py` (post-build, compares git diff vs plan's Relevant Files) | Strong — gate + post-check |
 | **§3 Match existing style** | Stack-aware refs auto-loaded by `context_router.py` (`refs/*-patterns.md`) + Context7 for live API docs | Strong |
@@ -121,8 +121,8 @@ Semantic code intelligence via Language Server Protocol. When available, all age
 
 Living specifications and delta tracking. When installed (`npm i -g @fission-ai/openspec && openspec init --tools claude`), it integrates into the pipeline at three points:
 
-- **Explore** (plan_w_team Step 2) — reads existing specs via `openspec list/show` CLI to inform interview questions
-- **Propose** (plan_w_team Step 13) — creates change artifacts (`openspec/changes/<name>/`) after plan review passes
+- **Explore** (dev_plan Step 2) — reads existing specs via `openspec list/show` CLI to inform interview questions
+- **Propose** (dev_plan Step 13) — creates change artifacts (`openspec/changes/<name>/`) after plan review passes
 - **Track** (smart_build Step 4) — marks completed tasks `[x]` in `tasks.md` incrementally, visible via `openspec view`
 
 Post-build, use `/opsx:verify` and `/opsx:archive` (OpenSpec's own slash commands) to validate and finalize. If OpenSpec is not installed, all steps skip silently.
@@ -143,7 +143,7 @@ Configure display with `/claude-hud:configure` — choose layout (compact/expand
 
 | Command | Description |
 |---------|-------------|
-| `/plan_w_team` | Create a plan with interviews, OpenSpec explore, plan review gate, and OpenSpec propose |
+| `/dev_plan` | Create a plan with interviews, OpenSpec explore, plan review gate, and OpenSpec propose |
 | `/smart_build` | Build with context routing + incremental OpenSpec task tracking |
 | `/plan` | Quick single-agent implementation plan |
 | `/all_tools` | List all available tools |

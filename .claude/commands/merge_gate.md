@@ -12,7 +12,7 @@ disallowed-tools: EnterPlanMode
 осознанно подтвердить вливание инкремента в базовую ветку.
 
 Это **единственное место**, где система делает `git commit` / `git merge`.
-Ни `/analyze`, ни `/plan_w_team`, ни `/smart_build` git-историю не трогают.
+Ни `/analyze`, ни `/dev_plan`, ни `/smart_build` git-историю не трогают.
 
 `push` и деплой — **вне зоны команды**. Их делает человек вручную после approve.
 
@@ -111,7 +111,7 @@ disallowed-tools: EnterPlanMode
 
    Причина зафиксирована в analytic/rejection_comment.txt.
    Дальше можно:
-   - запустить /plan_w_team с rejection_comment.txt как уточнением,
+   - запустить /dev_plan с rejection_comment.txt как уточнением,
    - или поправить код и повторно прогнать /smart_build, затем /merge_gate.
    ```
 

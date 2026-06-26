@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Every plan created by `/plan_w_team` includes a mandatory testing strategy following the **80/15/5 test pyramid**, plus a machine-verifiable `## Test Infrastructure (User-Declared)` section that downstream gates enforce.
+Every plan created by `/dev_plan` includes a mandatory testing strategy following the **80/15/5 test pyramid**, plus a machine-verifiable `## Test Infrastructure (User-Declared)` section that downstream gates enforce.
 
 ## Test Pyramid
 
@@ -31,7 +31,7 @@ Every plan created by `/plan_w_team` includes a mandatory testing strategy follo
 
 ## Plan as a Self-Checking Contract
 
-Each plan ships with a `## Test Infrastructure (User-Declared)` section — filled in during the **Test Infra Interview** (`/plan_w_team` Workflow Step 4.5) — that names, per stack and per layer, exactly:
+Each plan ships with a `## Test Infrastructure (User-Declared)` section — filled in during the **Test Infra Interview** (`/dev_plan` Workflow Step 4.5) — that names, per stack and per layer, exactly:
 
 - **Files glob** — where the tests live in this repo.
 - **Infra signature (regex)** — what proves the chosen infrastructure is actually used (e.g., `@Testcontainers`, `@EmbeddedKafka`, `import.*playwright`).
@@ -43,7 +43,7 @@ This section is the contract. Three gates enforce it:
 
 | Gate | When | What it verifies |
 |------|------|------------------|
-| `validate_plan.py` Check 9 + 10 | At plan save (`/plan_w_team` Stop hook) | Section present, every non-Skipped layer has all required fields, Integration is never Skipped |
+| `validate_plan.py` Check 9 + 10 | At plan save (`/dev_plan` Stop hook) | Section present, every non-Skipped layer has all required fields, Integration is never Skipped |
 | `check_test_layers.py` | After test tasks complete (`/smart_build` Step 4.5) | `Files glob` resolves to ≥1 file; `Infra signature` regex matches in every file; declared scenarios exist as test methods (fuzzy grep); anti-mock heuristic for integration files (WARN-only) |
 | `validator` agent | Final `validate-all` task | Executes each layer's declared `Runner command` verbatim; parses output for executed-tests count; FAILs if executed count is less than declared scenarios count |
 
@@ -51,8 +51,8 @@ This section is the contract. Three gates enforce it:
 
 The framework does **not** keep a hardcoded list of test libraries. It cannot tell you "use Testcontainers" — but the planner (Opus) can:
 
-1. **Step 4 of `/plan_w_team`** — planner reads `pom.xml` / `pyproject.toml` / `package.json` and figures out what test infrastructure the repo already supports and **how the most realistic tests are actually run today** (Surefire vs. Failsafe vs. a custom Maven profile vs. `pytest -m integration` vs. a Gradle task vs. a CI script vs. anything else).
-2. **Step 4.5 of `/plan_w_team`** — planner asks the user (`AskUserQuestion`):
+1. **Step 4 of `/dev_plan`** — planner reads `pom.xml` / `pyproject.toml` / `package.json` and figures out what test infrastructure the repo already supports and **how the most realistic tests are actually run today** (Surefire vs. Failsafe vs. a custom Maven profile vs. `pytest -m integration` vs. a Gradle task vs. a CI script vs. anything else).
+2. **Step 4.5 of `/dev_plan`** — planner asks the user (`AskUserQuestion`):
    - Q1 (always): which integration happy-path scenarios, on which infra (suggesting what was observed)?
    - Q2 (only if frontend detected): include E2E? Which runner?
    - Q3 (only if Q1 was vague): which exact scenarios?
@@ -156,14 +156,14 @@ Each test task gets:
 
 A plan without `## Test Infrastructure (User-Declared)` will **fail** `validate_plan.py` Check 9 with a message pointing at the migration path. Two options:
 
-1. Re-run `/plan_w_team` — it now performs the Test Infra Interview at Step 4.5 and fills in the section automatically.
+1. Re-run `/dev_plan` — it now performs the Test Infra Interview at Step 4.5 and fills in the section automatically.
 2. Add the section by hand using the templates above.
 
 There is no soft-warning grace period — the gate is hard FAIL. Old plans without the contract cannot be verified, and unverified test realism is exactly the gap we're closing.
 
 ## Key Files
 
-- `.claude/commands/plan_w_team.md` — Test Infra Interview (Step 4.5), Plan Format includes `## Test Infrastructure (User-Declared)`
+- `.claude/commands/dev_plan.md` — Test Infra Interview (Step 4.5), Plan Format includes `## Test Infrastructure (User-Declared)`
 - `.claude/hooks/validators/validate_plan.py` — Stop hook with Checks 8 (per-layer test tasks), 9 (section present), 10 (fields populated, Integration not Skipped)
 - `.claude/hooks/validators/check_test_layers.py` — post-build generic assertion checker invoked by `/smart_build`
 - `.claude/commands/smart_build.md` — runs `check_test_layers.py` at Step 4.5, before final validation

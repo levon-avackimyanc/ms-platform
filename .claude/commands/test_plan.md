@@ -1,5 +1,5 @@
 ---
-description: Test scope planning. Из increment.md (intent) + Dev-плана specs/*.md (контракт) строит test/test-model.md (через test-analyst + test-explorer) и test/test-plan.md с autotest-задачами по слоям (integration/sys/e2e/ui/load), валидирует (validate_plan --scope test) и прогоняет plan-reviewer. Авторинг идёт параллельно с Dev; UNIT — не здесь.
+description: Test scope planning. Из increment.md (intent — первичный вход) строит test/test-model.md (через test-analyst + test-explorer) и test/test-plan.md с autotest-задачами по слоям (integration/sys/e2e/ui/load), валидирует (validate_plan --scope test) и прогоняет plan-reviewer. Идёт полностью параллельно с Dev от t=0, независимо; specs/*.md — опциональная сверка, не контракт. UNIT — не здесь.
 argument-hint: "[orchestration prompt]"
 model: opus
 disallowed-tools: EnterPlanMode
@@ -36,18 +36,20 @@ hooks:
 # Test Plan
 
 Build the **Test scope** plan: derive a *test model* (how we author autotests in
-this project) and a plan of **autotest tasks per layer**. Authoring runs **in
-parallel with Dev**; the run/triage half is the separate `/test_run`. See
-`.claude/TEST_SCOPE.md` for the full contract.
+this project) and a plan of **autotest tasks per layer**. Test scope is
+**independent of and fully parallel with Dev** — it binds to `analytic/increment.md`
+(intent), not to the Dev plan, and runs from t=0. The run/triage half is the separate
+`/test_run`. See `.claude/TEST_SCOPE.md` for the full contract.
 
 ## Variables
 
 - **INCREMENT_FILE** = `analytic/increment.md` — the **intent** input (FR/NFR/
   acceptance — the *why*). If missing → stop and ask to run `/analyze` first.
-- **DEV_PLAN** = `specs/*.md` — the **primary technical contract** (real endpoints,
-  error shapes, DTOs, **deferral decisions**) that autotests bind to. If absent, Dev
-  planning is not done yet — author against the increment intent and **re-sync when
-  the plan lands** (see Step 0).
+- **DEV_PLAN** = `specs/*.md` — (optional) the Dev plan, if it happens to exist.
+  **Not a binding contract** — Test scope plans independently from the increment and
+  may make different technical decisions. Use it, if present, only as a non-binding
+  cross-reference. Divergence between test assumptions and what Dev built is
+  reconciled at `/test_run` by `failure-analyzer`, not here.
 - **TEST_LANDSCAPE** = `test/test-landscape.md` — existing test landscape from
   `test-explorer` (suites, infra, runners, coverage gaps).
 - **ORCHESTRATION_PROMPT** = `$1` — (optional) guidance for layer/team/task structure.
@@ -59,15 +61,15 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 
 - **PLANNING ONLY** — no product code, no test code, no git. Read-only helper
   agents (`test-explorer`, `test-analyst`, `plan-reviewer`) may be spawned.
-- **Bind to the Dev contract.** Autotests bind to `specs/*.md` (real endpoints/
-  shapes/deferrals), not to the increment's wording. Where the plan refines the
-  increment (e.g. paths `/links` → `/api/links`), follow the plan.
-- **Reconcile increment ↔ plan, don't author blind.** If the Dev plan **defers or
-  contradicts** an increment acceptance criterion (e.g. an AC marked out-of-scope),
-  do **NOT** author a test for the deferred behavior — surface it as a
-  **spec-divergence** (`AskUserQuestion`: reconcile the increment via `/analyze`, or
-  confirm the AC is out-of-scope for this round). This catches the divergence here,
-  not as a false service-side bug at `/test_run`.
+- **Bind to the increment intent.** Autotests bind to `analytic/increment.md` — its
+  FR/NFR, acceptance criteria and behaviors. Test scope derives its **own** technical
+  approach from that intent; it does **not** depend on, and may differ from, the Dev
+  plan's endpoints/shapes. (The concrete service paths/shapes are resolved when the
+  tests compile/run against real code at `/test_run`.)
+- **Divergence is reconciled at run time, not at planning.** If the running service
+  later differs from what the tests assumed, `/test_run`'s `failure-analyzer`
+  classifies each failure as **test-side** (autotester fixes) or **service-side**
+  (bug-reporter files a bug). Do not gate planning on a Dev-plan comparison.
 - **UNIT is NOT in scope** — it is owned by Dev. This plan declares only the higher
   layers (**Integration / Sys / E2E / UI / Load**). Do not add a `unit-tests` task
   or a live Unit Layer (if you mention Unit at all, mark it `Skipped — owned by Dev`).
@@ -92,21 +94,15 @@ parallel with Dev**; the run/triage half is the separate `/test_run`. See
 
 0. **Resolve inputs** — confirm `analytic/increment.md` exists (`ls`); read it
    (+ `original_task.txt`, `review-report.json` for context). If absent → stop and
-   ask for `/analyze`. Then read the **Dev plan** (`specs/*.md`): it is the technical
-   contract autotests bind to. **Contract-frozen check** — the plan should have
-   passed `plan-reviewer` (Dev planning done). If no plan exists yet, note that
-   authoring binds to increment intent and **must re-sync once the plan lands**.
-   State you are in Test-scope planning.
-0.5 **Reconcile increment ↔ plan.** Compare the increment's acceptance criteria
-   against the Dev plan. If the plan **defers or contradicts** any AC, stop and
-   surface the **spec-divergence** (`AskUserQuestion`): reconcile via `/analyze`, or
-   confirm out-of-scope. Do not plan tests for deferred behavior.
+   ask for `/analyze`. This is the **only required input** — Test scope plans from the
+   increment intent and runs fully in parallel with Dev (no dependency on `specs/*.md`,
+   no contract-frozen wait). A Dev plan, if present, may be skimmed as a non-binding
+   cross-reference only. State you are in Test-scope planning.
 1. **Test model (analytic) — first.** Spawn **`test-analyst`**
-   (`subagent_type: "test-analyst"`, foreground): from the increment + **the Dev
-   plan `specs/*.md`** (+ build files + landscape if present) it decides the
-   **applicable layers** and writes `test/test-model.md` (patterns/data/infra/runner
-   per layer). If it returns Open questions, resolve them (`AskUserQuestion`) and
-   re-run. *(Board order: analytic → Expl.)*
+   (`subagent_type: "test-analyst"`, foreground): from the **increment** (+ build
+   files + landscape if present) it decides the **applicable layers** and writes
+   `test/test-model.md` (patterns/data/infra/runner per layer). If it returns Open
+   questions, resolve them (`AskUserQuestion`) and re-run. *(Board order: analytic → Expl.)*
 2. **Map the test landscape — then.** Spawn **`test-explorer`** agent(s)
    (`subagent_type: "test-explorer"`, parallel via `ASSIGNED_AREAS` for a large
    suite) to map the existing test landscape and tag autotest areas by test type for
@@ -141,7 +137,7 @@ Follow this EXACT structure (replace `<...>`):
 <what "tested" means when this plan is complete — which layers, which behaviors>
 
 ## Relevant Files
-<existing files only: analytic/increment.md, specs/*.md (Dev plan / contract), test/test-model.md, test/test-landscape.md, existing test config/dirs. Why each.>
+<existing files only: analytic/increment.md (primary), test/test-model.md, test/test-landscape.md, existing test config/dirs. specs/*.md only if present, as a non-binding cross-reference. Why each.>
 
 ### New Files
 <the autotest files to create, per layer>
@@ -199,7 +195,7 @@ Follow this EXACT structure (replace `<...>`):
 <measurable: every increment acceptance criterion is covered by ≥1 autotest scenario at the right layer>
 
 ## Team Orchestration
-<orchestrator deploys autotester(s)/code-reviewer/validator via the Agent tool; owns the task ledger; see plan_w_team Team Orchestration for the shared mechanics>
+<orchestrator deploys autotester(s)/code-reviewer/validator via the Agent tool; owns the task ledger; see dev_plan Team Orchestration for the shared mechanics>
 
 ### Team Members
 - Autotester

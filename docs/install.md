@@ -33,7 +33,7 @@ TTS_ENABLED=y bash install.sh --force
 
 ```
 .claude/
-├── commands/          — slash commands (plan_w_team, smart_build, etc.)
+├── commands/          — slash commands (dev_plan, smart_build, etc.)
 ├── agents/team/       — agent definitions (builder, validator, plan-reviewer)
 ├── hooks/             — context router, section loader, validators
 ├── refs/              — coding standards (Java, React, Python)

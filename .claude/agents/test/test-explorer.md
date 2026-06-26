@@ -30,7 +30,7 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__get
 ## Словарь тегов (важно)
 
 Теги — это **trigger keywords** из колонки «Trigger keywords» Section Routing
-Catalog (`commands/plan_w_team.md`) + `refs/*-testing.md` / `refs/*-load.md`, а
+Catalog (`commands/dev_plan.md`) + `refs/*-testing.md` / `refs/*-load.md`, а
 **НЕ** section-id вида `java-testing#jdbc`. Причина та же, что у Dev `explorer`:
 `/test_plan` подставляет твои теги прямо в поле `**Stack**` autotest-задач, а
 `context_router.py` роутит контекст **по совпадению ключевых слов подстрокой**.

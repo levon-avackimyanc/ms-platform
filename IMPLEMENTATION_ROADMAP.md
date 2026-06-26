@@ -43,10 +43,10 @@
 | Компонент | Что входит | Что отложено |
 |---|---|---|
 | **Analytic_scope** (новый, наш) | `business-analyst.md`, `analytic-reviewer.md`, `commands/analyze.md`, `hooks/validators/validate_increment.py` | — (всё необходимое в MVP-0) |
-| **Dev_scope** (upstream as-is + наш HITL) | `/plan_w_team`, builder, plan-reviewer, validator, линтеры — БЕЗ ИЗМЕНЕНИЙ. Добавляем `commands/merge_gate.md`. | worktree-параллелизм, новые доменные refs (только если нужно) |
+| **Dev_scope** (upstream as-is + наш HITL) | `/dev_plan`, builder, plan-reviewer, validator, линтеры — БЕЗ ИЗМЕНЕНИЙ. Добавляем `commands/merge_gate.md`. | worktree-параллелизм, новые доменные refs (только если нужно) |
 | **Test_scope (lite)** | `commands/test_run.md`, `agents/analyzer.md` | system / e2e UI / load тесты, selective regression, история падений analyzer'а с verdict-flip |
 | **Refs** | upstream as-is (`java-patterns.md`, `java-testing.md`) | доменные refs (RAG/MCP/Liquibase) — только при явной необходимости |
-| **HITL gate'ы** | (a) approve `increment.md` в чате с заказчиком; (b) ExitPlanMode после `/plan_w_team`; (c) `merge_gate` перед коммитом | богатый diff-view, multi-line комментарии |
+| **HITL gate'ы** | (a) approve `increment.md` в чате с заказчиком; (b) ExitPlanMode после `/dev_plan`; (c) `merge_gate` перед коммитом | богатый diff-view, multi-line комментарии |
 | **Observability** | встроенный Claude Code trace; Stop-hook'и в логах | свой трейсинг / метрики / дашборды |
 
 ---
@@ -58,10 +58,10 @@
 ### Неделя 1 — Analytic_scope + первое прохождение в Dev
 
 #### Day 1 — Setup
-- **A** (или единственный исполнитель): убедиться что Claude Code установлен; пройти upstream `install.sh` локально; запустить `/plan_w_team` без аргументов на любом toy-проекте — должен открыться шаблон. Это smoke `.claude/` интеграции.
+- **A** (или единственный исполнитель): убедиться что Claude Code установлен; пройти upstream `install.sh` локально; запустить `/dev_plan` без аргументов на любом toy-проекте — должен открыться шаблон. Это smoke `.claude/` интеграции.
 - **B** (если есть): создать toy-микросервис в отдельном репо (CRUD + Spring Data + tests). Подключить к нему `.claude/` через `install.sh`.
 
-**Milestone Day 1:** Claude Code в репозитории toy-проекта запускает `/plan_w_team` без ошибок.
+**Milestone Day 1:** Claude Code в репозитории toy-проекта запускает `/dev_plan` без ошибок.
 
 #### Day 2 — `validate_increment.py`
 - Написать Python-скрипт `validate_increment.py` (4 проверки из AGENTS_SPECIFICATION п. 4.1).
@@ -85,18 +85,18 @@
 **Milestone Day 4:** `/analyze` end-to-end работает: validate → review → approve.
 
 #### Day 5 — Переход в Dev (упор на готовое из upstream)
-- Никакого кода: на approved `increment.md` запустить `/plan_w_team` (готовая команда из upstream).
+- Никакого кода: на approved `increment.md` запустить `/dev_plan` (готовая команда из upstream).
 - Пройти Test Infra Interview, дать plan-reviewer'у сделать критику, выбрать ExitPlanMode (HITL approve плана).
 - Запустить builder; параллельно работают линтеры через PostToolUse hook.
 - Дойти до момента «`validator` вынес PASS».
 
-**Milestone недели 1:** `/analyze` → `/plan_w_team` → builder → validator(PASS) на toy-микросервисе. Code+tests лежат в ветке `increment/<id>`.
+**Milestone недели 1:** `/analyze` → `/dev_plan` → builder → validator(PASS) на toy-микросервисе. Code+tests лежат в ветке `increment/<id>`.
 
 ### Неделя 2 — `merge_gate`, Test_scope (lite), полный цикл и демо
 
 #### Day 6 — `commands/merge_gate.md`
 - Реализовать `merge_gate` как команду (без своих hook'ов).
-- Сценарии: approve → commit + tag; reject → сохранить `rejection_comment.txt` + сообщить о возможности перезапустить `/plan_w_team`.
+- Сценарии: approve → commit + tag; reject → сохранить `rejection_comment.txt` + сообщить о возможности перезапустить `/dev_plan`.
 
 **Milestone Day 6:** `merge_gate` коммитит инкремент в основную ветку toy-репо.
 
@@ -115,7 +115,7 @@
 
 #### Day 9 — End-to-end + полировка
 - **Реальный сквозной прогон**: бизнес-аналитик-человек (можно сам разработчик в этой роли) проходит `/analyze` → ExitPlanMode → `/merge_gate` → ручной деплой → `/test_run`.
-- Намеренно сломать продукт (изменить логику валидации в одном из endpoint'ов) — убедиться, что `/test_run` → `analyzer` → `bug.md` → новый `/plan_w_team` с этим `bug.md` как контекстом → builder фиксит.
+- Намеренно сломать продукт (изменить логику валидации в одном из endpoint'ов) — убедиться, что `/test_run` → `analyzer` → `bug.md` → новый `/dev_plan` с этим `bug.md` как контекстом → builder фиксит.
 - Полировка промптов агентов по результатам.
 
 **Milestone Day 9:** полный bug-routing loop работает.
@@ -134,11 +134,11 @@
 Конкретные бинарные критерии:
 
 - [ ] `install.sh` устанавливает `.claude/` в toy-репо без ошибок.
-- [ ] `/analyze "<задача>"` запускает chat-interview, записывает `analytic/increment.md` валидной структуры, проходит `validate_increment.py` зелёным и `analytic-reviewer` с verdict `ok`, после approve — сообщает о готовности к `/plan_w_team`.
-- [ ] `/plan_w_team` (upstream) принимает контекст из `increment.md`, проходит `plan-reviewer`, проходит ExitPlanMode approve, далее builder + validator завершаются PASS на toy.
+- [ ] `/analyze "<задача>"` запускает chat-interview, записывает `analytic/increment.md` валидной структуры, проходит `validate_increment.py` зелёным и `analytic-reviewer` с verdict `ok`, после approve — сообщает о готовности к `/dev_plan`.
+- [ ] `/dev_plan` (upstream) принимает контекст из `increment.md`, проходит `plan-reviewer`, проходит ExitPlanMode approve, далее builder + validator завершаются PASS на toy.
 - [ ] `/merge_gate` коммитит инкремент.
 - [ ] `/test_run` запускает declared runner; на намеренной поломке продукта вызывает `analyzer`, который пишет `bug.md`.
-- [ ] `/plan_w_team` повторно запущенный с `bug.md` как контекстом доводит фикс до PASS.
+- [ ] `/dev_plan` повторно запущенный с `bug.md` как контекстом доводит фикс до PASS.
 - [ ] Реальный сотрудник (не разработчик из команды MVP) использует `/analyze` хотя бы для одного реального бизнес-кейса и получает осмысленный `increment.md` без правок руками.
 - [ ] `README.md` содержит секцию «Запуск с нуля» с проверенными командами.
 

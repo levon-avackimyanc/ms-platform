@@ -30,14 +30,16 @@ flowchart LR
     subgraph A["🔎 Analytic scope"]
         A1["/analyze"] --> A2[["increment.md"]]
     end
-    subgraph D["⚙️ Dev scope"]
-        D1["/plan_w_team"] --> D2["/smart_build"] --> D3["/merge_gate"]
+    BS{{"/build_scopes<br/>тонкий Conductor"}}
+    subgraph D["⚙️ Dev scope — dev-conductor [bg]"]
+        D1["/dev_plan"] --> D2["/smart_build"] --> D3["/merge_gate"]
     end
-    subgraph T["🧪 Test scope — параллельно с Dev"]
+    subgraph T["🧪 Test scope — test-conductor [bg], параллельно"]
         T1["/test_plan"] --> T2["/test_build"] --> T3["/test_run"] --> T4["/test_gate"]
     end
-    A -->|HITL approve| D
-    A2 -.-> T1
+    A2 -->|HITL approve| BS
+    BS -->|t=0| D1
+    BS -->|t=0| T1
     D3 --> OUT(["🐳 Docker-образ"])
     T4 --> OUT
 
@@ -47,12 +49,14 @@ flowchart LR
 
 В ключевых точках — **HITL-gate** (Human-In-The-Loop): заказчик подтверждает результат прямо в сессии Claude Code, прежде чем процесс пойдёт дальше. На fail-валидации или ревью соответствующий агент правит сам, не дёргая заказчика без нужды.
 
+**`/build_scopes`** — параллельный вход: из `increment.md` он одновременно (t=0) запускает два фоновых conductor'а — `dev-conductor` (Dev) и `test-conductor` (Test), которые независимы и читают один `increment.md`. Conductor'ы не умеют `AskUserQuestion` — их вопросы «всплывают» в главный тред, который спрашивает заказчика и возобновляет conductor через `SendMessage`. Расхождения Dev/Test разрешаются на `/test_run`. Standalone-команды (`/dev_plan`, `/smart_build`, `/test_plan`, `/test_build`) сохраняются для ручного прогона одного scope.
+
 ### Три scope-а
 
 | Scope | Команды | Что делает | Артефакты |
 |---|---|---|---|
 | **Analytic** | `/analyze` | Интервью с заказчиком → спецификация инкремента (ФТ/НФТ, business-flow, сценарии, acceptance criteria), валидация + семантическое ревью, HITL-approve. | `analytic/original_task.txt`, `analytic/increment.md`, `analytic/review-report.json` |
-| **Dev** | `/plan_w_team` → `/smart_build` → `/merge_gate` | План с командой → сборка кода с роутингом контекста и юнит-тестами → финальный merge-gate. | `specs/<план>.md`, код инкремента |
+| **Dev** | `/dev_plan` → `/smart_build` → `/merge_gate` | План с командой → сборка кода с роутингом контекста и юнит-тестами → финальный merge-gate. | `specs/<план>.md`, код инкремента |
 | **Test** *(параллельно с Dev)* | `/test_plan` → `/test_build` → `/test_run` → `/test_gate` | Модель тестов + план по слоям → авторинг автотестов → прогон и триаж падений → финальный gate. | `test/test-model.md`, `test/test-plan.md`, автотесты, `test/bugs/` |
 
 ---
@@ -62,7 +66,8 @@ flowchart LR
 | Команда | Scope | Назначение |
 |---|---|---|
 | `/analyze` | Analytic | Старт: интервью с заказчиком, запись `increment.md`, валидация + ревью, HITL-approve. |
-| `/plan_w_team` | Dev | Инженерный план реализации в `specs/` (с Test Infra interview и ревью плана). |
+| `/build_scopes` | Dev + Test | Параллельный вход: из `increment.md` одновременно запускает `dev-conductor` и `test-conductor` в фоне, релеит их вопросы заказчику. Тонкий оркестратор — сам не планирует/не собирает/git не трогает. |
+| `/dev_plan` | Dev | Инженерный план реализации в `specs/` (с Test Infra interview и ревью плана). |
 | `/smart_build` | Dev | Сборка кода с семантическим роутингом контекста (грузит только нужные секции). |
 | `/merge_gate` | Dev | Финальный HITL merge-gate: diff + вердикты → commit инкремента и (по подтверждению) merge. |
 | `/test_plan` | Test | Из `increment.md` — `test-model.md` и `test-plan.md` с задачами по слоям. |
@@ -79,8 +84,8 @@ flowchart LR
 | Scope | Агенты |
 |---|---|
 | **analytic** | `business-analyst` — пишет `increment.md`; `analytic-reviewer` — семантическое ревью против исходной задачи. |
-| **dev** | `developer` — продуктовый код; `unit-tester` — юнит-тесты. |
-| **test** | `test-analyst` — модель тестов; `autotester` — автотесты высоких слоёв; `failure-analyzer` — триаж падений; `bug-reporter` — баг-репорты. |
+| **dev** | `dev-conductor` — фоновый дирижёр Dev-пайплайна (план + сборка); `developer` — продуктовый код; `unit-tester` — юнит-тесты. |
+| **test** | `test-conductor` — фоновый дирижёр Test-авторинга; `test-analyst` — модель тестов; `test-explorer` — тест-ландшафт; `autotester` — автотесты высоких слоёв; `failure-analyzer` — триаж падений; `bug-reporter` — баг-репорты. |
 | **shared** | `explorer`, `context-router`, `plan-reviewer`, `code-reviewer`, `validator` — переиспользуются между scope-ами. |
 | **meta** | `meta-agent` — генерирует новые агенты по описанию. |
 
@@ -91,7 +96,7 @@ flowchart LR
 ```
 .claude/            # ядро — Claude Code конфигурация
   ├── agents/       # роли исполнителей, по scope-ам (analytic/ dev/ test/ shared/)
-  ├── commands/     # slash-команды (/analyze, /plan_w_team, /test_run, …)
+  ├── commands/     # slash-команды (/analyze, /dev_plan, /test_run, …)
   ├── hooks/        # lifecycle-хуки + валидаторы (Python)
   ├── refs/         # доменные референсы (java-patterns, java-testing, …)
   ├── config/       # шаблоны (increment_template.yaml)
@@ -172,8 +177,8 @@ claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
 
 | Точка интеграции | Команда | Что делает |
 |---|---|---|
-| **Explore** | `/plan_w_team` (Step 2) | Читает существующие спеки (`openspec list/show`) и подмешивает их в вопросы интервью — ищет конфликты с текущими требованиями. |
-| **Propose** | `/plan_w_team` (Step 13) | После прохождения ревью плана создаёт `openspec/changes/<name>/` (proposal.md, specs/, design.md, tasks.md). |
+| **Explore** | `/dev_plan` (Step 2) | Читает существующие спеки (`openspec list/show`) и подмешивает их в вопросы интервью — ищет конфликты с текущими требованиями. |
+| **Propose** | `/dev_plan` (Step 13) | После прохождения ревью плана создаёт `openspec/changes/<name>/` (proposal.md, specs/, design.md, tasks.md). |
 | **Track** | `/smart_build` (Step 4) | По ходу сборки отмечает выполненные задачи `[x]` в `tasks.md` (видно через `openspec view`). |
 
 > Интеграция оркеструется **командами**, а не промптами суб-агентов. После сборки доступны собственные команды OpenSpec — `/opsx:verify` и `/opsx:archive`.
@@ -208,12 +213,13 @@ claude "/analyze <краткая формулировка задачи от за
 
 > `/analyze` ведёт интерактивное интервью, поэтому запускайте его в **интерактивной сессии** (не в headless `-p`).
 
-Дальше оркестратор сам ведёт заказчика по цепочке — после approve на каждом scope предлагается следующий шаг (`/plan_w_team`, затем Test scope параллельно). Отдельные команды можно вызывать и вручную:
+После approve инкремента самый простой путь — `/build_scopes`: он запускает Dev и Test параллельно из одного `increment.md`. Отдельные команды можно вызывать и вручную (по одному scope):
 
 ```text
-/plan_w_team   # планирование с командой
+/build_scopes  # параллельный запуск Dev + Test из increment.md
+/dev_plan      # планирование с командой (только Dev)
 /smart_build   # сборка с роутингом контекста
-/test_plan     # план автотестов по слоям
+/test_plan     # план автотестов по слоям (только Test)
 ```
 
 ---
