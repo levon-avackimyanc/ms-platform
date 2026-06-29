@@ -33,7 +33,7 @@ hooks:
             --team-dir $CLAUDE_PROJECT_DIR/.claude/agents
 ---
 
-# Plan With Team
+# Dev Plan
 
 Create a detailed implementation plan based on the user's requirements provided through the `USER_PROMPT` variable. Analyze the request, think through the implementation approach, and save a comprehensive specification document to `PLAN_OUTPUT_DIRECTORY/<name-of-plan>.md` that can be used as a blueprint for actual development work. Follow the `Instructions` and work through the `Workflow` to create the plan.
 

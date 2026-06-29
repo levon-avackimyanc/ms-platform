@@ -8,36 +8,68 @@ are Russian; this doc is English to match `CLAUDE.md` and `.claude/refs/`.)
 
 ```
 Analytic scope          Dev scope                              Test scope
-/analyze        →   /plan_w_team → /smart_build → /merge_gate   ∥  parallel,
-(increment.md)      (specs/*.md)   (code+unit tests) (git commit)    coupled via
-                         │                                           specs/*.md
-                         └──── frozen contract ───► /test_plan → /test_build → /test_run
-                                                    (see TEST_SCOPE.md)
+                    /dev_plan → /smart_build → /merge_gate
+/analyze        →   (specs/*.md)  (code+unit tests) (git commit)
+(increment.md) ──┐
+                 │  (same input, independent, both from t=0)   ∥  parallel
+                 └► /test_plan → /test_build → /test_run
+                    (see TEST_SCOPE.md)
 ```
 
 Boundaries:
 - Dev scope writes **product code + unit tests only**. Integration/E2E are owned
   by Test scope.
-- **Test scope is coupled, not independent**: it reads the Dev plan `specs/*.md`
-  (the frozen technical contract) and authors higher-layer autotests **in parallel**
-  with the Dev build. Test *execution* (`/test_run`) depends on Dev code being done.
-  See [`TEST_SCOPE.md`](./TEST_SCOPE.md).
+- **Test scope is independent, not coupled**: it reads the same
+  `analytic/increment.md` as Dev (the intent) and authors higher-layer autotests
+  **in parallel from t=0** — it does **not** bind to the Dev plan `specs/*.md` and may
+  make different technical decisions. Test *execution* (`/test_run`) depends on Dev
+  code being done; Dev/Test divergence is reconciled there. See
+  [`TEST_SCOPE.md`](./TEST_SCOPE.md).
 - **`/merge_gate` is the only command that runs `git commit` / `git merge`.**
-  `/plan_w_team` and `/smart_build` never touch git history.
+  `/dev_plan` and `/smart_build` never touch git history.
 - Sub-agents have **no Task tools**; the orchestrator owns the task ledger.
+
+## Parallel conductor flow
+
+`/build_scopes` is the thin main-thread Conductor. It spawns two background
+conductor agents from the same `analytic/increment.md` **at t=0** and only relays HITL:
+
+```
+main thread = /build_scopes (thin Conductor — HITL relay only, no git)
+ ├─► dev-conductor  [bg]: explorer → plan specs/*.md → developer/unit-tester/
+ │                        code-reviewer/validator   (embeds /dev_plan + /smart_build)
+ └─► test-conductor [bg]: test-explorer/test-analyst → plan test/*.md → autotester/
+                          code-reviewer              (embeds /test_plan + /test_build)
+ both read increment.md · independent · Dev build ∥ Test authoring
+```
+
+- **Bubble-up HITL.** Conductors cannot call `AskUserQuestion`. When a planner needs
+  the user it ends its turn with a `HITL_QUESTIONS` block (`STATUS:
+  PAUSED_AWAITING_ANSWER`); `/build_scopes` asks via `AskUserQuestion` and resumes the
+  conductor via `SendMessage` (verified round-trip — see harness-constraints memory).
+- **Self-tracked ledger.** Each conductor tracks its children's task state internally
+  from their Reports; there is no shared Task ledger across the parallel run.
+- **Gates unchanged.** `/merge_gate` (Dev) and `/test_run` → `/test_gate` (Test) stay
+  human-launched after the conductors finish. Conductors never touch git.
 
 ## Commands (skills)
 
 | Command | Model | Role | Output |
 |---|---|---|---|
-| `/plan_w_team` | opus | Plan from increment/prompt; interview, explore, decompose into tasks | `specs/<kebab>.md` |
+| `/build_scopes` | opus | **Parallel front door** — thin Conductor; spawns `dev-conductor` ∥ `test-conductor` from the increment, relays bubble-up HITL | (delegates) |
+| `/dev_plan` | opus | Plan from increment/prompt; interview, explore, decompose into tasks | `specs/<kebab>.md` |
 | `/smart_build` | inherits | Orchestrate the team to build the plan | code + unit tests |
 | `/merge_gate` | sonnet | HITL gate; commit + merge | git commit/merge |
+
+`/dev_plan` and `/smart_build` still run standalone (one scope, by hand). The
+parallel path wraps both inside the `dev-conductor` agent — see *Parallel conductor
+flow* below.
 
 ## Agents
 
 | Agent | Model | R/W | Used in | Per-agent hook |
 |---|---|---|---|---|
+| `dev-conductor` | opus | orchestrates (plans + builds) | `/build_scopes` | — |
 | `explorer` | sonnet | writes only `explore/module-map.md` | plan Step 3.5 | — |
 | `plan-reviewer` | opus | read-only | plan Step 12 | — |
 | `context-router` | haiku | read-only | (helper) | — |
@@ -54,14 +86,14 @@ Model policy is intentional: `developer`=sonnet (bulk code-writing),
 1. **Global** (`.claude/settings.json`, main thread) — telemetry/infra only:
    `pre_tool_use`, `post_tool_use` (logs to `logs/`), `user_prompt_submit`,
    `stop`, `subagent_stop`, `session_*`, etc. Not quality gates.
-2. **Per-command** (command frontmatter) — `/plan_w_team` Stop hooks validate
+2. **Per-command** (command frontmatter) — `/dev_plan` Stop hooks validate
    the saved plan (see Validators).
 3. **Per-agent** (agent frontmatter) — `developer` & `unit-tester` run
    `validator_dispatcher.py` on every `Write|Edit`. **This is the code quality gate.**
 
 ## Validators
 
-**Plan structure** (`/plan_w_team` Stop hooks):
+**Plan structure** (`/dev_plan` Stop hooks):
 - `validate_new_file.py` — a `.md` appeared in `specs/`.
 - `validate_file_contains.py` — all required H2 sections present.
 - `validate_plan.py` — 10 structural checks (unit-tests task required, Unit Layer
@@ -115,7 +147,7 @@ from on-disk artifacts.
 
 ```
 increment.md
-   │  /plan_w_team (opus)
+   │  /dev_plan (opus)
    ├─ AskUserQuestion ×2 (interview, main thread)
    ├─ Agent: explorer ×N (parallel) → explore/module-map.md
    ├─ Write specs/plan.md ──Stop hooks──► validate_new_file + validate_file_contains + validate_plan(10)
@@ -139,5 +171,5 @@ increment.md
 |---|---|---|
 | `analytic/*` | Analytic scope | gitignored |
 | `explore/module-map.md` | explorer | gitignored |
-| `specs/*.md` | `/plan_w_team` | committed |
+| `specs/*.md` | `/dev_plan` | committed |
 | `openspec/changes/*` | OpenSpec (if installed) | committed |

@@ -5,7 +5,13 @@ One-line installer that copies the `.claude/` directory into your project.
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/a-simeshin/claude-code-hooks-mastery/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/levon-avackimyanc/ms-platform/main/install.sh | bash
+```
+
+To install from a specific branch (e.g. while testing an unmerged PR), set `MSP_BRANCH`:
+
+```bash
+MSP_BRANCH=feat/my-branch bash install.sh
 ```
 
 Interactive prompts:
@@ -33,10 +39,12 @@ TTS_ENABLED=y bash install.sh --force
 
 ```
 .claude/
-├── commands/          — slash commands (plan_w_team, smart_build, etc.)
-├── agents/team/       — agent definitions (builder, validator, plan-reviewer)
+├── commands/          — slash commands (/analyze, /build_scopes, /dev_plan, /smart_build, /test_*, /merge_gate)
+├── agents/            — agents by scope (analytic/ dev/ test/ shared/), incl. dev-conductor & test-conductor
 ├── hooks/             — context router, section loader, validators
-├── refs/              — coding standards (Java, React, Python)
+├── refs/              — coding standards (Java, React, Python, Rust)
+├── config/            — increment template
+├── DEV_SCOPE.md, TEST_SCOPE.md — pipeline contracts
 ├── settings.json      — hook configuration
 └── CLAUDE.md          — project instructions
 ```
@@ -44,7 +52,7 @@ TTS_ENABLED=y bash install.sh --force
 ## Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/a-simeshin/claude-code-hooks-mastery/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/levon-avackimyanc/ms-platform/main/uninstall.sh | bash
 ```
 
 Removes the `.claude/` directory and all installed files.

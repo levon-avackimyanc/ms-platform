@@ -28,7 +28,7 @@ Add Serena MCP server to your Claude Code config. See [Serena docs](https://gith
 
 ## How Agents Use It
 
-**Planning** (`/plan_w_team`):
+**Planning** (`/dev_plan`):
 - Steps 1, 4: Use `find_symbol` and `get_symbols_overview` instead of Glob/Grep to understand architecture
 - Step 15: `write_memory` saves architectural decisions and patterns chosen for future sessions
 - Step 1: `read_memory` loads past decisions to inform new plans
@@ -41,6 +41,6 @@ Add Serena MCP server to your Claude Code config. See [Serena docs](https://gith
 
 ## Key Files
 
-- `.claude/commands/plan_w_team.md` — Serena integration in Steps 1, 4, 15
+- `.claude/commands/dev_plan.md` — Serena integration in Steps 1, 4, 15
 - `.claude/agents/team/builder.md` — builder agent with Serena tools
 - `.claude/agents/team/plan-reviewer.md` — plan-reviewer with Serena tools

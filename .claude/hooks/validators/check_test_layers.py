@@ -291,7 +291,7 @@ def check_plan(plan_path: Path) -> tuple[bool, dict]:
     if not test_infra.get("section_present"):
         return False, {
             "error": "Plan has no `## Test Infrastructure (User-Declared)` section. "
-                     "Cannot verify test realism without it. Run /plan_w_team to migrate."
+                     "Cannot verify test realism without it. Run /dev_plan to migrate."
         }
 
     layers = test_infra.get("layers", [])

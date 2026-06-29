@@ -516,7 +516,7 @@ def check_test_infrastructure_section(test_infra: dict) -> list[str]:
     if not test_infra.get("section_present"):
         errors.append(
             "Missing `## Test Infrastructure (User-Declared)` section. "
-            "Migrate plan: rerun /plan_w_team (it fills the Unit Layer from the codebase at Step 4, "
+            "Migrate plan: rerun /dev_plan (it fills the Unit Layer from the codebase at Step 4, "
             "with the optional Unit Layer Clarification at Step 4.5) or add the section manually with a "
             "per-stack `### Unit Layer (X)` block (Integration/E2E are optional — owned by Test scope). "
             "The section is the machine-verifiable contract that `check_test_layers.py` and the `validator` agent enforce."

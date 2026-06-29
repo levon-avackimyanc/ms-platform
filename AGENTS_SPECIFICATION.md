@@ -70,12 +70,12 @@ hooks:                                       # опционально — вст
 
 | Старая роль | Куда переехала |
 |---|---|
-| `system-analyst` | Внутрь `/plan_w_team` — он сам декомпозирует increment.md в технические задачи. |
+| `system-analyst` | Внутрь `/dev_plan` — он сам декомпозирует increment.md в технические задачи. |
 | `explorer` | `context-router` + Glob/Grep/Serena MCP внутри builder/plan-reviewer. |
-| `planner` | `/plan_w_team` — слот orchestrator-планировщика. |
-| `team-lead` | Не отдельный агент. Главный prompt `/plan_w_team` + TaskCreate / addBlockedBy / owner = оркестрация по факту. |
+| `planner` | `/dev_plan` — слот orchestrator-планировщика. |
+| `team-lead` | Не отдельный агент. Главный prompt `/dev_plan` + TaskCreate / addBlockedBy / owner = оркестрация по факту. |
 | `reviewer` (LLM по diff) | `plan-reviewer` (ревью плана) + `validator` (проверка результатов) — закрывают тот же гэп с двух сторон. |
-| `auto-tester`, `test-modeler` | Внутри `/plan_w_team` через mandatory integration layer + Test Infra Interview. |
+| `auto-tester`, `test-modeler` | Внутри `/dev_plan` через mandatory integration layer + Test Infra Interview. |
 
 ---
 
@@ -325,7 +325,7 @@ hooks:
 4. По verdict'у:
    - `ok` → попроси заказчика подтвердить approve (показ итогового `increment.md` + сводка).
    - `needs_revision` → верни управление `business-analyst` с `review-report.json` как input.
-5. После approve — сообщи пользователю: «Готово для `/plan_w_team`».
+5. После approve — сообщи пользователю: «Готово для `/dev_plan`».
 
 ## Instructions
 - НЕ пиши `increment.md` сам — это работа `business-analyst`.
@@ -360,7 +360,7 @@ model: sonnet
 3. Если хотя бы один runner вернул exit ≠ 0 → вызови `analyzer` как subagent.
 4. По результату analyzer'а:
    - `bug.md` создан → сообщи пользователю: «Получен bug.md, можно запустить
-     `/plan_w_team` с этим контекстом для доработки».
+     `/dev_plan` с этим контекстом для доработки».
    - `bug.md` не создан → сообщи: «Все падения — ошибки в самих тестах,
      передан builder'у на правку».
 
@@ -397,7 +397,7 @@ model: sonnet
    - Сообщи пользователю об успешном merge.
 4. **reject:**
    - Спроси reason, сохрани в `analytic/rejection_comment.txt`.
-   - Сообщи: «Reject зафиксирован, можно запустить `/plan_w_team` с rejection.txt
+   - Сообщи: «Reject зафиксирован, можно запустить `/dev_plan` с rejection.txt
      как уточнение».
 ```
 
@@ -450,7 +450,7 @@ model: sonnet
 | `python-*.md`, `react-*.md`, `rust-*.md` | upstream | builder (под соответствующий стек) |
 | `<domain refs>` | мы добавляем | builder, business-analyst (для специфики предметной области команды) |
 
-Доменные refs добавляем по мере появления нужды — не заранее «про запас». Источник keywords для матчинга — раздел `Section Routing Catalog` в `commands/plan_w_team.md`.
+Доменные refs добавляем по мере появления нужды — не заранее «про запас». Источник keywords для матчинга — раздел `Section Routing Catalog` в `commands/dev_plan.md`.
 
 ---
 
@@ -459,7 +459,7 @@ model: sonnet
 | Тема | Значение |
 |---|---|
 | Лимит итераций Analytic (валидатор/ревьюер циклы) | 5 |
-| Лимит итераций Dev (builder ↔ validator) | контролирует `/plan_w_team`-orchestrator (TaskList) — мягко |
+| Лимит итераций Dev (builder ↔ validator) | контролирует `/dev_plan`-orchestrator (TaskList) — мягко |
 | Stop-loss по analyzer'у | 5 циклов `bug_in_test` подряд по одному test_id → эскалация |
 | HITL точки | (a) approve `increment.md`; (b) approve plan (`ExitPlanMode`); (c) approve merge (`/merge_gate`) |
 | Хранилище артефактов | git, ветка инкремента |

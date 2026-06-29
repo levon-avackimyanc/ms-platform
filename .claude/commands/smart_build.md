@@ -12,7 +12,7 @@ Build with **semantic context routing** - loads only the sections you need.
 
 ### Step 0: Load Plan (if argument is a plan file)
 
-If `$ARGUMENTS` ends with `.md` and the file exists in `specs/`, this is a **plan execution** request. The plan has already been reviewed by plan-reviewer during `/plan_w_team`. Read the plan and execute tasks directly (skip Steps 1-3 for context routing — use the plan's Stack keywords instead).
+If `$ARGUMENTS` ends with `.md` and the file exists in `specs/`, this is a **plan execution** request. The plan has already been reviewed by plan-reviewer during `/dev_plan`. Read the plan and execute tasks directly (skip Steps 1-3 for context routing — use the plan's Stack keywords instead).
 
 **OpenSpec tracking init:** At the start of plan execution, check if an OpenSpec change exists:
 ```bash

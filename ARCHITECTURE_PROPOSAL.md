@@ -40,7 +40,7 @@
 | Примитив | Где живёт | Назначение в нашей системе |
 |---|---|---|
 | **agents** | `.claude/agents/*.md` | Роли: builder, plan-reviewer, validator (есть); business-analyst, analytic-reviewer, analyzer (добавляем) |
-| **commands** | `.claude/commands/*.md` | Slash-команды: `/plan_w_team`, `/smart_build` (есть); `/analyze`, `/test_run` (добавляем) |
+| **commands** | `.claude/commands/*.md` | Slash-команды: `/dev_plan`, `/smart_build` (есть); `/analyze`, `/test_run` (добавляем) |
 | **hooks** | `.claude/hooks/*.py` + `settings.json` | Lifecycle (Pre/PostToolUse, Stop, …) и валидаторы (spotless, jacoco, validate_plan, …) |
 | **skills** | (формат скиллов Claude Code если применимо) | Переиспользуемые «как делать X», вызываемые агентами по матчингу keyword'ов |
 | **refs** | `.claude/refs/*.md` | Бывший «tags registry» — готовые `java-patterns.md`, `java-testing.md`, и т. д. |
@@ -63,50 +63,75 @@ Loop при fail валидатора или ревьюера: `business-analyst
 
 Готовые слои из upstream покрывают почти всё:
 
-- **`/plan_w_team`** (Opus) — agent-orchestrator, создаёт `specs/<плана>.md` с 8 обязательными секциями (включая `Testing Strategy` 80/15/5 и `Test Infrastructure (User-Declared)`). Внутри проводит **Test Infra Interview** с пользователем для заполнения раннеров.
+- **`/dev_plan`** (Opus) — agent-orchestrator, создаёт `specs/<плана>.md` с 8 обязательными секциями (включая `Testing Strategy` 80/15/5 и `Test Infrastructure (User-Declared)`). Внутри проводит **Test Infra Interview** с пользователем для заполнения раннеров.
 - **`plan-reviewer`** (Opus, read-only) — критический ревью плана по 10 критериям (Problem Alignment, Surgical Scope, Test Realism и т. д.) перед execution.
 - **TaskCreate / TaskUpdate / TaskList / TaskGet** — встроенная оркестрация задач: planner создаёт задачи, назначает owner, расставляет `addBlockedBy`, builder-агенты берут свои.
 - **`builder`** (Opus) — универсальный исполнитель (Java/React/Python). Auto-loads refs по стеку и keywords из `**Stack**` поля задачи.
 - **`validator`** (Sonnet, read-only) — пост-execution верификация: запускает `mvn spotless:check` / `mvn test` / declared runner'ы из плана, проверяет actual-vs-declared scenarios count, диффовый scope через `check_diff_scope.py`.
-- **Hooks:** PostToolUse → `validator_dispatcher.py` (запускает релевантный линтер по типу файла); Stop у `/plan_w_team` → `validate_plan.py` (проверка контракт-полноты плана).
+- **Hooks:** PostToolUse → `validator_dispatcher.py` (запускает релевантный линтер по типу файла); Stop у `/dev_plan` → `validate_plan.py` (проверка контракт-полноты плана).
 
 Что **добавляем**:
 - **`merge_gate`** команда или Stop-hook — финальное HITL-подтверждение перед коммитом/merge инкремента (аналог нашего «manual-merge-gate»).
 
 Чего **сознательно не делаем на старте**:
-- Параллельные worktree per dev-agent. `/plan_w_team` оркестрирует задачи последовательно через TaskList + owner — для MVP это достаточно. Worktree-параллелизм рассматриваем как будущую опцию.
+- Параллельные worktree per dev-agent. `/dev_plan` оркестрирует задачи последовательно через TaskList + owner — для MVP это достаточно. Worktree-параллелизм рассматриваем как будущую опцию.
 
-#### Test_scope — **связан с Dev, идёт параллельно** (полный, не lite)
+#### Test_scope — **независим от Dev, идёт параллельно** (полный, не lite)
 
-> Актуальная редакция (2026-06-24). Прежняя «lite»-концепция (Test = только
-> `/test_run` + `analyzer`, а тесты пишутся внутри `/plan_w_team`) устарела.
+> Актуальная редакция (2026-06-26). Прежняя «lite»-концепция (Test = только
+> `/test_run` + `analyzer`, а тесты пишутся внутри `/dev_plan`) устарела; **также
+> отменена** редакция 2026-06-24 («Test привязан к Dev-плану / contract-frozen»).
 > Полный контракт — в [`.claude/TEST_SCOPE.md`](./.claude/TEST_SCOPE.md).
 
 Test_scope владеет **авторингом + прогоном/анализом** автотестов высоких слоёв
-(Integration / Sys / E2E / UI / Load); **UNIT остаётся в Dev_scope**. Он **не
-независим**: это **отдельная ветка, связанная с Dev через план** и идущая
-**параллельно** разработке.
+(Integration / Sys / E2E / UI / Load); **UNIT остаётся в Dev_scope**. Это
+**независимый параллельный пайплайн**: и Dev, и Test берут на вход один
+`analytic/increment.md` и стартуют **одновременно от t=0**.
 
-- **Связь = Dev-план `specs/*.md`.** Технический контракт (реальные эндпоинты,
-  формы ошибок, отложенные AC) рождается в плане, не в `increment.md`. `/test_plan`
-  и `test-analyst` читают план как первичный вход; `increment.md` — это intent.
-  Расхождение increment↔plan ловится на `/test_plan` как **spec-divergence**, а не
-  как ложный service-баг на прогоне.
+- **Вход = `increment.md` (intent), а не Dev-план.** `/test_plan` и `test-analyst`
+  читают increment как первичный вход и выводят **собственный** технический подход —
+  независимо от Dev. `specs/*.md`, если есть, — необязательная сверка, не контракт.
+  Технические решения Dev и Test **могут отличаться**.
 - **Свой планировщик и свой explorer.** `/test_plan` + `test-analyst` +
   **`test-explorer`** (карта тест-ландшафта → `test/test-landscape.md`). Test **не**
-  вливается в `/plan_w_team`; два планировщика, **два ledger'а**, синхронизация по
-  milestone **«contract frozen»**.
-- **Параллельный авторинг.** `/test_build` гоняет `autotester`'ов **одновременно с
-  Dev-build**. Compile-гейт в этом режиме **смягчён** (`--authoring`: формат +
-  статика; компиляция/покрытие отложены), поэтому ссылки на ещё не собранный код не
-  блокируют авторинг.
+  вливается в `/dev_plan`; два планировщика, **два независимых ledger'а**, без
+  contract-frozen и без синхронизации по Dev-артефакту.
+- **Параллельный авторинг от t=0.** `/test_build` гоняет `autotester`'ов
+  **одновременно с Dev** без ожидания Dev-milestone. Compile-гейт в этом режиме
+  **смягчён** (`--authoring`: формат + статика; компиляция/покрытие отложены),
+  поэтому ссылки на ещё не собранный код не блокируют авторинг.
+- **Расхождение Dev/Test** разрешается на `/test_run` (`failure-analyzer`:
+  test-side / service-side), а не на этапе планирования.
 - **Прогон/анализ (Flow B).** `/test_run` — **человеко-запускаемый после готовности
   кода**: Exec → `failure-analyzer` (test-side / service-side / unclear) →
   {фикс теста `autotester`'ом | баг `bug-reporter`'ом в `test/bugs/`}.
 - **Гейт.** `/test_gate` — единственная Test-команда, трогающая git.
 
 BUG-routing: service-side баг (`test/bugs/*.md`) становится входом для нового
-`/plan_w_team` — полный Dev-цикл доработки.
+`/dev_plan` — полный Dev-цикл доработки.
+
+#### Параллельное исполнение через conductor'ы
+
+Dev и Test идут **по-настоящему параллельно** через тонкий главный Conductor и два
+фоновых conductor-агента:
+
+```
+main thread = /build_scopes (тонкий Conductor — только релей HITL, git не трогает)
+ ├─► dev-conductor  [bg]: explorer → план specs/*.md → developer/unit-tester/
+ │                        code-reviewer/validator   (внутри /dev_plan + /smart_build)
+ └─► test-conductor [bg]: test-explorer/test-analyst → план test/*.md → autotester/
+                          code-reviewer              (внутри /test_plan + /test_build)
+ оба читают increment.md · независимы · Dev-build ∥ Test-authoring
+```
+
+- **Bubble-up HITL.** Sub-агенты не могут вызвать `AskUserQuestion`. Planner внутри
+  conductor'а отдаёт вопросы блоком `HITL_QUESTIONS` (пауза); `/build_scopes`
+  спрашивает пользователя и возобновляет conductor через `SendMessage` (round-trip
+  проверен эмпирически).
+- **Два независимых ledger'а**, без contract-frozen. Гейты `/merge_gate` и
+  `/test_run` → `/test_gate` остаются человеко-запускаемыми после conductor'ов.
+- Standalone-команды (`/dev_plan`, `/smart_build`, `/test_plan`, `/test_build`)
+  сохраняются для ручного прогона одного scope.
 
 ### 7. Refs (бывший tags registry)
 
@@ -117,7 +142,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
 - `react-patterns.md` (54 KB).
 - `rust-patterns.md`, `rust-testing.md`.
 
-Раньше предполагалась таблица из 3 полей (имя, описание, ссылка). В Claude Code-парадигме refs — это **сами markdown'ы с разделами** (`#section`); матчинг через keyword'ы → секции делает `context-router.md` агент и `context_router.py` hook (см. `Section Routing Catalog` в `/plan_w_team`).
+Раньше предполагалась таблица из 3 полей (имя, описание, ссылка). В Claude Code-парадигме refs — это **сами markdown'ы с разделами** (`#section`); матчинг через keyword'ы → секции делает `context-router.md` агент и `context_router.py` hook (см. `Section Routing Catalog` в `/dev_plan`).
 
 Доменные refs нашей команды (по корпоративным библиотекам / внутренним MCP / RAG / liquibase-конвенциям и т. д.) **добавляем сюда же** новыми файлами или новыми секциями в существующих.
 
@@ -128,7 +153,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
 | **LLM-инфра** | Claude через сам Claude Code (Opus для планировщика/ревьюера/анализатора, Sonnet для верификатора, Haiku — если появятся быстрые / fan-out задачи). Своего матчинга «роль → модель» не делаем — Claude Code сам по `model:` в YAML-frontmatter агента. |
 | **Артефакты — где живут** | В git, в ветке инкремента: `analytic/`, `specs/<plan>.md`, `test/runs/<ts>/`. Никакой собственной БД. |
 | **Версионирование** | 1 инкремент = 1 ветка. Промежуточные коммиты по фазам (analytic / spec / build / test). Squash при approve — опция, не обязательная. |
-| **HITL точки** | (a) approve `increment.md` в чате с заказчиком (Analytic gate); (b) approve плана `/plan_w_team` (встроено в Claude Code — exit plan mode); (c) approve merge перед коммитом инкремента (`merge_gate`). |
+| **HITL точки** | (a) approve `increment.md` в чате с заказчиком (Analytic gate); (b) approve плана `/dev_plan` (встроено в Claude Code — exit plan mode); (c) approve merge перед коммитом инкремента (`merge_gate`). |
 | **Failure-режимы** | Стандартные Claude Code: retry/exit при ошибках инструментов; наши hook-валидаторы возвращают exit≠0 → Claude Code сам интерпретирует и зовёт агента поправить. |
 | **Observability** | Trace встроенный в Claude Code + Stop-hook'и которые пишут логи. Свой трейсинг не строим. |
 | **Бюджет / SLA** | Не задаём; модель выбирается per-agent в YAML-frontmatter. Контроль расходов — через Claude Code (он показывает токены). |
@@ -155,7 +180,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
                 ▼
 ┌──────────────────────────────────────────────────────────────┐
 │              .claude/  (наш репозиторий ms-platform)         │
-│  ┌─ commands/   /plan_w_team  /smart_build  /analyze*  /test_run* │
+│  ┌─ commands/   /dev_plan  /smart_build  /analyze*  /test_run* │
 │  ┌─ agents/     builder, plan-reviewer, validator,           │
 │  │              business-analyst*, analytic-reviewer*, analyzer* │
 │  ├─ hooks/      lifecycle (Pre/PostToolUse/Stop/…) +         │
@@ -174,7 +199,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
 │    │     ├── increment.md            (бизнес-инкремент)      │
 │    │     └── review-report.json                              │
 │    ├── specs/                                                │
-│    │     └── <plan-name>.md          (план из /plan_w_team)  │
+│    │     └── <plan-name>.md          (план из /dev_plan)  │
 │    ├── src/, pom.xml, …               (продукт сам)          │
 │    └── test/runs/<timestamp>/         (логи прогонов)        │
 └──────────────────────────────────────────────────────────────┘
@@ -187,7 +212,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
 ```
 .claude/
 ├── commands/
-│   ├── plan_w_team.md         ✓ upstream — центральный планировщик Dev_scope
+│   ├── dev_plan.md         ✓ upstream — центральный планировщик Dev_scope
 │   ├── smart_build.md         ✓ upstream — сборка с роутингом контекста
 │   ├── analyze.md             ✗ ДОБАВИТЬ — старт Analytic_scope (business-analyst)
 │   └── test_run.md            ✗ ДОБАВИТЬ — запуск тестов + analyzer
@@ -235,7 +260,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
 |---|---|---|---|---|
 | `business-analyst` | **наш** | Sonnet | Chat-interview с заказчиком, пишет `analytic/increment.md`. | Analytic_scope |
 | `analytic-reviewer` | **наш** | Opus | Сверка `increment.md` с исходной задачей, поиск пробелов/противоречий. | Analytic_scope |
-| `/plan_w_team` (как агент-orchestrator) | upstream | Opus | Создаёт `specs/<plan>.md` с 8 секциями + Test Infra Interview + декомпозиция на TaskCreate. | Dev_scope |
+| `/dev_plan` (как агент-orchestrator) | upstream | Opus | Создаёт `specs/<plan>.md` с 8 секциями + Test Infra Interview + декомпозиция на TaskCreate. | Dev_scope |
 | `plan-reviewer` | upstream | Opus | 10-критериальный ревью плана. | Dev_scope |
 | `builder` | upstream | Opus | Реализует задачи плана (код + тесты). | Dev_scope |
 | `validator` | upstream | Sonnet | Прогон declared runner'ов, scope-check, acceptance. | Dev_scope |
@@ -259,7 +284,7 @@ BUG-routing: service-side баг (`test/bugs/*.md`) становится вхо�
 HITL approve (в чате — пользователь подтверждает)
    │
    ▼
-[/plan_w_team  "<контекст из increment.md>"]
+[/dev_plan  "<контекст из increment.md>"]
    │ Test Infra Interview + plan write
    ▼
 specs/<plan>.md  ← validate_plan.py (Stop hook) + plan-reviewer (subagent)
@@ -286,7 +311,7 @@ test/runs/<timestamp>/logs.ndjson + junit.xml
 [analyzer]   (если есть упавшие тесты)
    │
    ├── bug_in_test  → возврат builder'у (правит тест)
-   └── bug_in_product → bug.md → /plan_w_team полный цикл повторно
+   └── bug_in_product → bug.md → /dev_plan полный цикл повторно
 ```
 
 ### E. Артефакты-контракты между фазами
@@ -294,11 +319,11 @@ test/runs/<timestamp>/logs.ndjson + junit.xml
 | Артефакт | Создаёт | Читает | Где живёт |
 |---|---|---|---|
 | `analytic/original_task.txt` | пользователь (через `business-analyst`) | `analytic-reviewer` | ветка инкремента |
-| `analytic/increment.md` | `business-analyst` | `/plan_w_team`, `analytic-reviewer`, `analyzer` | ветка инкремента |
+| `analytic/increment.md` | `business-analyst` | `/dev_plan`, `analytic-reviewer`, `analyzer` | ветка инкремента |
 | `analytic/review-report.json` | `analytic-reviewer` | `business-analyst` (на доработку) | ветка инкремента |
-| `specs/<plan-name>.md` | `/plan_w_team` | `plan-reviewer`, `builder`, `validator`, `check_diff_scope.py` | ветка инкремента |
+| `specs/<plan-name>.md` | `/dev_plan` | `plan-reviewer`, `builder`, `validator`, `check_diff_scope.py` | ветка инкремента |
 | `test/runs/<ts>/logs.ndjson` | `/test_run` | `analyzer` | ветка инкремента |
-| `test/runs/<ts>/bug.md` | `analyzer` | `/plan_w_team` (повторный цикл) | ветка инкремента |
+| `test/runs/<ts>/bug.md` | `analyzer` | `/dev_plan` (повторный цикл) | ветка инкремента |
 
 ### F. Что точно требует прототипирования (риски)
 

@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/a-simeshin/claude-code-hooks-master
 ```mermaid
 flowchart TB
     subgraph Команды
-        plan["/plan_w_team"]
+        plan["/dev_plan"]
         smart["/smart_build"]
     end
 
@@ -83,7 +83,7 @@ flowchart TB
 | Возможность | Что делает | vs Оригинал | Docs |
 |-------------|-----------|-------------|------|
 | **Context Routing** | Маршрутизация по ключевым словам — загружает только нужные refs для задачи, без затрат на LLM | Оригинал загружает все refs в контекст | [docs/context-routing.md](docs/context-routing.md) |
-| **Plan With Team** | Двухраундовое интервью + каталог маршрутизации секций + стратегия тестирования + 8 проверок валидации | Нет структурной валидации в оригинале | [docs/plan-w-team.md](docs/plan-w-team.md) |
+| **Dev Plan** | Двухраундовое интервью + каталог маршрутизации секций + стратегия тестирования + 8 проверок валидации | Нет структурной валидации в оригинале | [docs/dev-plan.md](docs/dev-plan.md) |
 | **Testing Strategy** | Обязательная пирамида тестирования 80/15/5 (unit / integration-API / UI e2e), выделенная задача `write-tests` | Нет в оригинале | [docs/testing-strategy.md](docs/testing-strategy.md) |
 | **Plan Review** | Двухэтапный гейт перед сборкой: структурный валидатор + 8-критериальный критик на Opus | Нет в оригинале | [docs/plan-review.md](docs/plan-review.md) |
 | **Context7** | Опциональный поиск актуальной документации для любой библиотеки через MCP | Нет в оригинале | [docs/context7.md](docs/context7.md) |
@@ -101,7 +101,7 @@ Flow этого форка **полностью покрывает** четыр�
 
 | Секция CLAUDE.md | Чем обеспечена | Степень |
 |------------------|----------------|---------|
-| **§1 Think Before Coding** — допущения, неоднозначности, tradeoffs | `plan_w_team` Interview Round 1 + Round 2 (`AskUserQuestion`); plan-reviewer критерии #1 Problem Alignment, #3 Questions Gap | Сильно — формализованный гейт |
+| **§1 Think Before Coding** — допущения, неоднозначности, tradeoffs | `dev_plan` Interview Round 1 + Round 2 (`AskUserQuestion`); plan-reviewer критерии #1 Problem Alignment, #3 Questions Gap | Сильно — формализованный гейт |
 | **§2 Simplicity First** — минимум кода, без спекулятивных абстракций | plan-reviewer критерий #5 Overengineering — явный FAIL | Сильно — гейт |
 | **§3 Surgical Changes** — трогать только нужное, без скоупкрипа | plan-reviewer критерий #9 Surgical Scope (до сборки); `check_diff_scope.py` (после сборки, сравнивает git diff с Relevant Files плана) | Сильно — гейт + пост-проверка |
 | **§3 Match existing style** | Stack-aware refs автозагружаются `context_router.py` (`refs/*-patterns.md`) + Context7 для актуальных API | Сильно |
@@ -121,8 +121,8 @@ Flow этого форка **полностью покрывает** четыр�
 
 Living specifications и дельта-трекинг. При установке (`npm i -g @fission-ai/openspec && openspec init --tools claude`) интегрируется в пайплайн в трёх точках:
 
-- **Explore** (plan_w_team Step 2) — читает существующие спецификации через `openspec list/show` CLI для информирования вопросов интервью
-- **Propose** (plan_w_team Step 13) — создаёт артефакты изменений (`openspec/changes/<name>/`) после прохождения ревью плана
+- **Explore** (dev_plan Step 2) — читает существующие спецификации через `openspec list/show` CLI для информирования вопросов интервью
+- **Propose** (dev_plan Step 13) — создаёт артефакты изменений (`openspec/changes/<name>/`) после прохождения ревью плана
 - **Track** (smart_build Step 4) — отмечает выполненные задачи `[x]` в `tasks.md` инкрементально, видимо через `openspec view`
 
 После сборки используйте `/opsx:verify` и `/opsx:archive` (собственные slash-команды OpenSpec) для валидации и финализации. Если OpenSpec не установлен — все шаги пропускаются молча.
@@ -143,7 +143,7 @@ Living specifications и дельта-трекинг. При установке 
 
 | Команда | Описание |
 |---------|----------|
-| `/plan_w_team` | Создать план с интервью, OpenSpec explore, гейтом ревью плана и OpenSpec propose |
+| `/dev_plan` | Создать план с интервью, OpenSpec explore, гейтом ревью плана и OpenSpec propose |
 | `/smart_build` | Сборка с маршрутизацией контекста + инкрементальное отслеживание задач OpenSpec |
 | `/plan` | Быстрый одноагентный план реализации |
 | `/all_tools` | Показать все доступные инструменты |
