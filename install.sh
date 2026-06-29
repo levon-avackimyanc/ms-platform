@@ -1,11 +1,12 @@
 #!/bin/bash
-# Install Claude Code hooks for Java/React projects
-# Usage: curl -fsSL https://raw.githubusercontent.com/a-simeshin/claude-code-hooks-mastery/main/install.sh | bash
+# Install the ms-platform Claude Code pipeline (.claude/) into a target service
+# Usage: curl -fsSL https://raw.githubusercontent.com/levon-avackimyanc/ms-platform/main/install.sh | bash
+# Test a branch: MSP_BRANCH=feat/my-branch bash install.sh
 
 set -e
 
-REPO="a-simeshin/claude-code-hooks-mastery"
-BRANCH="main"
+REPO="levon-avackimyanc/ms-platform"
+BRANCH="${MSP_BRANCH:-main}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -53,12 +54,20 @@ TMP_DIR=$(mktemp -d)
 trap "rm -rf $TMP_DIR" EXIT
 
 # Download and extract
-echo "Downloading from github.com/${REPO}..."
+echo "Downloading from github.com/${REPO} (branch: ${BRANCH})..."
 curl -fsSL "https://github.com/${REPO}/archive/refs/heads/${BRANCH}.tar.gz" | tar -xz -C "$TMP_DIR"
+
+# Locate the single extracted top-level dir (GitHub names it <repo>-<branch>,
+# replacing '/' in the branch with '-', so detect it instead of reconstructing).
+SRC_DIR=$(find "$TMP_DIR" -maxdepth 1 -mindepth 1 -type d | head -1)
+if [ -z "$SRC_DIR" ] || [ ! -d "$SRC_DIR/.claude" ]; then
+    echo "Error: could not find .claude/ in the downloaded archive (branch '${BRANCH}'?)." >&2
+    exit 1
+fi
 
 # Copy .claude folder (merge if exists)
 mkdir -p .claude
-cp -r "$TMP_DIR/claude-code-hooks-mastery-${BRANCH}/.claude/." .claude/
+cp -r "$SRC_DIR/.claude/." .claude/
 
 echo ""
 echo -e "${GREEN}Configuration${NC}"
