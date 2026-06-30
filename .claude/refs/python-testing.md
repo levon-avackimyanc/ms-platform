@@ -2,97 +2,97 @@
 
 <!-- section:philosophy -->
 
-## Философия тестирования
+## Testing Philosophy
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│           РЕАЛЬНЫЕ ИНТЕГРАЦИОННЫЕ ТЕСТЫ                         │
-│      (HTTP через httpx, Postgres/Kafka через testcontainers)    │
+│           REAL INTEGRATION TESTS                                │
+│      (HTTP via httpx, Postgres/Kafka via testcontainers)        │
 │                                                                 │
-│    → Основная корзина базовых сценариев                         │
-│    → Максимальная стабильность в агентной разработке            │
-│    → Ловят РЕАЛЬНЫЕ баги (миграции, схемы, сериализация)        │
+│    → Main basket for core scenarios                             │
+│    → Maximum stability in agentic development                   │
+│    → Catch REAL bugs (migrations, schemas, serialization)       │
 └─────────────────────────────────────────────────────────────────┘
                             +
 ┌─────────────────────────────────────────────────────────────────┐
-│           UNIT ТЕСТЫ С PROTOCOL-FAKES / pytest-mock             │
-│              (edge cases, ветки валидации)                      │
+│           UNIT TESTS WITH PROTOCOL-FAKES / pytest-mock          │
+│              (edge cases, validation branches)                  │
 │                                                                 │
-│    → Добить coverage до 80/80 (line + branch)                   │
+│    → Push coverage to 80/80 (line + branch)                     │
 │    → Edge cases: concurrent updates, retries, partial failures  │
-│    → Быстрый feedback loop для domain логики                    │
+│    → Fast feedback loop for domain logic                        │
 └─────────────────────────────────────────────────────────────────┘
                             +
 ┌─────────────────────────────────────────────────────────────────┐
-│              PROPERTY-BASED ТЕСТЫ (Hypothesis)                  │
+│              PROPERTY-BASED TESTS (Hypothesis)                  │
 │                                                                 │
-│    → Инварианты: round-trip сериализация, идемпотентность       │
-│    → Ищут минимальный контрпример автоматически                 │
-│    → Один такой тест ловит то, что 50 example-based не ловят    │
+│    → Invariants: round-trip serialization, idempotency          │
+│    → Automatically search for the minimal counterexample        │
+│    → One such test catches what 50 example-based tests miss     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Правила написания тестов
+## Test Writing Rules
 
-### 1. Никогда не мокай БД, очереди, HTTP-серверы
+### 1. Never Mock DB, Queues, HTTP Servers
 
-`testcontainers-python` поднимает реальный Postgres/Redis/Kafka в Docker. Mock БД =
-тест проходит, миграция падает в проде.
+`testcontainers-python` spins up a real Postgres/Redis/Kafka in Docker. Mock DB =
+test passes, migration fails in production.
 
 ```
-Инфраструктура (БД, очереди, HTTP API) → testcontainers / respx
-Внутренние сервисы (классы твоего кода) → Protocol-fake или pytest-mock
-Время → freezegun / time-machine
-Внешние HTTP API (платёжки, gigachat, etc) → respx (httpx) или responses (requests)
+Infrastructure (DB, queues, HTTP API) → testcontainers / respx
+Internal services (your code's classes) → Protocol-fake or pytest-mock
+Time → freezegun / time-machine
+External HTTP APIs (payment gateways, gigachat, etc) → respx (httpx) or responses (requests)
 ```
 
-### 2. Приоритет сценариев
+### 2. Scenario Priority
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. ПОЗИТИВНЫЕ СЦЕНАРИИ (сначала!)                              │
-│     → Happy path: валидный запрос → успешный ответ              │
-│     → Основной бизнес-флоу работает end-to-end                  │
+│  1. POSITIVE SCENARIOS (first!)                                 │
+│     → Happy path: valid request → successful response           │
+│     → Core business flow works end-to-end                       │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  2. КРИТИЧЕСКИЕ НЕГАТИВНЫЕ                                      │
-│     → 404: ресурс не найден                                     │
-│     → 422: ошибки валидации Pydantic                            │
-│     → 409: конфликт бизнес-логики                               │
+│  2. CRITICAL NEGATIVES                                          │
+│     → 404: resource not found                                   │
+│     → 422: Pydantic validation errors                           │
+│     → 409: business logic conflict                              │
 │     → 401/403: unauthorized/forbidden                           │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │  3. EDGE CASES (unit + property-based)                          │
-│     → Граничные значения через Hypothesis                       │
+│     → Boundary values via Hypothesis                            │
 │     → Concurrent updates, race conditions                       │
-│     → Retry/timeout логика                                      │
+│     → Retry/timeout logic                                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. НЕ пиши в тестах
+### 3. DO NOT Write in Tests
 
 ```python
-# ❌ НЕ пиши бенчмарки производительности
+# ❌ DO NOT write performance benchmarks
 def test_create_order_performance():
     start = time.perf_counter()
     for _ in range(1000):
         order_service.create(request)
     duration = time.perf_counter() - start
-    assert duration < 5.0  # ❌ Flaky! Зависит от железа CI
+    assert duration < 5.0  # ❌ Flaky! Depends on CI hardware
 
-# ❌ НЕ тестируй throughput / latency
-async def test_api_handles_100_rps(): ...  # ❌ Для locust/k6, не для pytest
+# ❌ DO NOT test throughput / latency
+async def test_api_handles_100_rps(): ...  # ❌ Use locust/k6, not pytest
 
-# ❌ НЕ мокай свою бизнес-логику
+# ❌ DO NOT mock your own business logic
 def test_create_order():
     mock_service = Mock()
     mock_service.create.return_value = Mock(id=1)
-    result = mock_service.create(Mock())  # ❌ Тестируем мок мока
-    assert result.id == 1  # ❌ Бессмысленно
+    result = mock_service.create(Mock())  # ❌ Testing a mock of a mock
+    assert result.id == 1  # ❌ Meaningless
 
-# ✅ Тестируй функциональность
+# ✅ Test actual functionality
 async def test_create_order_with_valid_request_returns_201(client):
     request = build_valid_order_request()
 
@@ -108,14 +108,14 @@ async def test_create_order_with_valid_request_returns_201(client):
 
 <!-- section:structure -->
 
-# Part 1: Базовые паттерны
+# Part 1: Basic Patterns
 
 ## 1. Naming Convention
 
-Формат: `test_<unit>_<scenario>_<expected>`. Английский для имён, русский OK для docstring.
+Format: `test_<unit>_<scenario>_<expected>`. English for names and docstrings.
 
 ```python
-# Формат: test_method_condition_expectedResult
+# Format: test_method_condition_expectedResult
 def test_create_order_with_valid_items_returns_order_with_correct_total(): ...
 
 def test_create_order_with_empty_items_raises_validation_error(): ...
@@ -125,16 +125,16 @@ def test_find_by_id_when_order_not_found_raises_not_found_error(): ...
 def test_cancel_when_already_shipped_raises_conflict_error(): ...
 ```
 
-**Файлы:**
-- Тестовые файлы зеркалят `src/`: `tests/unit/services/test_order_service.py` для `src/myservice/services/order_service.py`.
-- `*_test.py` или `test_*.py` (pytest auto-discovery).
+**Files:**
+- Test files mirror `src/`: `tests/unit/services/test_order_service.py` for `src/myservice/services/order_service.py`.
+- `*_test.py` or `test_*.py` (pytest auto-discovery).
 
 ## 2. Arrange-Act-Assert Structure
 
-AAA блоки разделены пустыми строками. Не комментариями `# arrange` — структурой.
+AAA blocks separated by blank lines. Not by `# arrange` comments — by structure.
 
 ```python
-# BAD: Сплошная стена кода — не видно где что
+# BAD: A wall of code — hard to see what's where
 def test_create_order():
     customer_id = 1
     items = [OrderItem(product_id=1, quantity=2, price=Decimal("100"))]
@@ -144,9 +144,9 @@ def test_create_order():
     assert result.total == Decimal("200")
 
 
-# GOOD: Чёткие AAA блоки
+# GOOD: Clear AAA blocks
 def test_create_order_with_valid_items_calculates_correct_total():
-    """Создание заказа считает итог корректно."""
+    """Order creation calculates total correctly."""
     # Arrange
     request = OrderCreate(
         customer_id=1,
@@ -161,23 +161,23 @@ def test_create_order_with_valid_items_calculates_correct_total():
     assert result.total == Decimal("200")
 ```
 
-**Альтернатива — given/when/then через docstring:**
+**Alternative — given/when/then via docstring:**
 ```python
 def test_cancel_shipped_order_raises_conflict():
     """
-    Given: заказ в статусе SHIPPED
-    When: пытаемся отменить
-    Then: бросается ConflictError
+    Given: order in SHIPPED status
+    When: attempting to cancel
+    Then: ConflictError is raised
     """
     order = build_order(status=OrderStatus.SHIPPED)
 
-    with pytest.raises(ConflictError, match="отправленный"):
+    with pytest.raises(ConflictError, match="shipped"):
         order_service.cancel(order.id)
 ```
 
-## 3. pytest assertions с introspection
+## 3. pytest assertions with introspection
 
-Plain `assert`. pytest подставит детали при падении автоматически — никаких `assertEqual`.
+Plain `assert`. pytest injects details on failure automatically — no `assertEqual` needed.
 
 ```python
 # BAD: unittest-style
@@ -192,19 +192,19 @@ assert "error" in response.text
 assert order.is_valid()
 
 
-# Проверка коллекций
+# Collection checks
 assert len(orders) == 3
 assert all(o.status == OrderStatus.PENDING for o in orders)
 assert orders[0].id == 1
 
 
-# Проверка полей объекта — chain not allowed → отдельные assert'ы
+# Object field checks — chaining not allowed → separate asserts
 assert result is not None
 assert result.id > 0
 assert result.status == OrderStatus.PENDING
 
 
-# Проверка ВСЕЙ структуры через ==
+# Full structure check via ==
 assert result.model_dump() == {
     "id": 1,
     "status": "pending",
@@ -213,31 +213,31 @@ assert result.model_dump() == {
 }
 ```
 
-**Сообщения assert'ов:**
+**Assert messages:**
 ```python
-# При сложных проверках добавляй контекст
-assert result.id > 0, f"Невалидный ID заказа: {result.id}"
+# Add context for complex checks
+assert result.id > 0, f"Invalid order ID: {result.id}"
 assert response.status_code == 201, (
     f"Expected 201, got {response.status_code}. Body: {response.text}"
 )
 ```
 
-## 4. pytest.raises — проверка исключений
+## 4. pytest.raises — exception checks
 
 ```python
-# Простая проверка типа
+# Simple type check
 def test_withdraw_negative_amount_raises():
     with pytest.raises(ValidationError):
         account.withdraw(Decimal("-100"))
 
 
-# Проверка типа + сообщения через regex
+# Type + message check via regex
 def test_withdraw_negative_amount_raises_with_message():
-    with pytest.raises(ValidationError, match=r"должна быть положительной"):
+    with pytest.raises(ValidationError, match=r"must be positive"):
         account.withdraw(Decimal("-100"))
 
 
-# Доступ к самому исключению для проверки атрибутов
+# Access the exception itself to check attributes
 def test_not_found_error_has_entity_info():
     with pytest.raises(NotFoundError) as exc_info:
         order_service.find_by_id(999)
@@ -257,10 +257,10 @@ def test_validate_order_collects_all_errors():
     assert all(isinstance(e, ValidationError) for e in errors)
 ```
 
-## 5. pytest.approx — числа с плавающей точкой
+## 5. pytest.approx — floating-point numbers
 
 ```python
-# BAD: float равенство — flaky
+# BAD: float equality — flaky
 assert result == 0.1 + 0.2  # ❌ 0.30000000000000004 != 0.3
 
 
@@ -270,27 +270,27 @@ def test_calculate_discount():
     assert result == pytest.approx(84.99, abs=0.01)
 
 
-# Для коллекций
+# For collections
 assert results == pytest.approx([1.1, 2.2, 3.3], rel=1e-3)
 
 
-# Для Decimal используй точное сравнение, approx не нужен
+# For Decimal use exact comparison, approx not needed
 assert order.total == Decimal("84.99")
 ```
 
-## 6. Группировка через классы
+## 6. Grouping via Classes
 
-Тесты одного метода/эндпоинта — в одном классе. Аналог `@Nested` в Java.
+Tests for one method/endpoint — in one class. Analogue of `@Nested` in Java.
 
 ```python
 class TestOrderService:
-    """Тесты для OrderService."""
+    """Tests for OrderService."""
 
     class TestCreate:
-        """create() — создание заказа."""
+        """create() — create an order."""
 
         def test_with_valid_items_returns_order(self, order_service: OrderService) -> None:
-            """Создание с валидными данными возвращает заказ."""
+            """Creating with valid data returns an order."""
             request = build_valid_order_request()
 
             result = order_service.create(request)
@@ -301,19 +301,19 @@ class TestOrderService:
         def test_with_empty_items_raises_validation_error(
             self, order_service: OrderService
         ) -> None:
-            """Пустой список items вызывает ValidationError."""
+            """Empty items list raises ValidationError."""
             request = OrderCreate(customer_id=1, items=[])
 
             with pytest.raises(ValidationError, match="items"):
                 order_service.create(request)
 
     class TestCancel:
-        """cancel() — отмена заказа."""
+        """cancel() — cancel an order."""
 
         def test_pending_order_cancels_successfully(
             self, order_service: OrderService, pending_order: Order
         ) -> None:
-            """Отмена pending заказа работает."""
+            """Cancelling a pending order succeeds."""
             cancelled = order_service.cancel(pending_order.id)
 
             assert cancelled.status == OrderStatus.CANCELLED
@@ -321,12 +321,12 @@ class TestOrderService:
         def test_shipped_order_raises_conflict(
             self, order_service: OrderService, shipped_order: Order
         ) -> None:
-            """Нельзя отменить отправленный."""
-            with pytest.raises(ConflictError, match="отправленный"):
+            """Cannot cancel a shipped order."""
+            with pytest.raises(ConflictError, match="shipped"):
                 order_service.cancel(shipped_order.id)
 ```
 
-⚠️ Классы в pytest **не должны иметь** `__init__`. Фикстуры передаются как параметры методов.
+⚠️ Classes in pytest **must not have** `__init__`. Fixtures are passed as method parameters.
 
 <!-- /section:structure -->
 
@@ -336,63 +336,63 @@ class TestOrderService:
 
 # Part 2: pytest Configuration
 
-## 7. pyproject.toml — pytest настройки
+## 7. pyproject.toml — pytest settings
 
 ```toml
 [tool.pytest.ini_options]
 addopts = [
-    "-ra",                  # показать причины skip/xfail
-    "--strict-markers",     # опечатка в @pytest.mark.unti = ошибка, не skip
-    "--strict-config",      # опечатка в config = ошибка
-    "--showlocals",         # показывать локальные переменные при падении
+    "-ra",                  # show reasons for skip/xfail
+    "--strict-markers",     # typo in @pytest.mark.unti = error, not skip
+    "--strict-config",      # typo in config = error
+    "--showlocals",         # show local variables on failure
     "-p", "no:cacheprovider",
 ]
 testpaths = ["tests"]
-asyncio_mode = "auto"        # async тесты без @pytest.mark.asyncio
-xfail_strict = true          # xfail который вдруг прошёл = ошибка
+asyncio_mode = "auto"        # async tests without @pytest.mark.asyncio
+xfail_strict = true          # xfail that unexpectedly passes = error
 log_cli = true
 log_cli_level = "WARNING"
 markers = [
-    "unit: быстрые тесты без I/O",
-    "integration: тесты с реальными зависимостями (БД, HTTP)",
-    "e2e: end-to-end тесты",
-    "slow: тесты выполняющиеся > 5 секунд",
+    "unit: fast tests without I/O",
+    "integration: tests with real dependencies (DB, HTTP)",
+    "e2e: end-to-end tests",
+    "slow: tests running > 5 seconds",
 ]
 filterwarnings = [
     "error",                                            # warning → error
-    "ignore::DeprecationWarning:pkg_resources.*",       # внешние либы
+    "ignore::DeprecationWarning:pkg_resources.*",       # third-party libs
 ]
 ```
 
-**Что даёт каждый флаг:**
-- `--strict-markers` — `@pytest.mark.untegration` (опечатка) упадёт с ошибкой, не молчаливо.
-- `--strict-config` — неизвестная опция в `pyproject.toml` упадёт.
-- `xfail_strict=true` — `xfail` тест который вдруг прошёл = ошибка. Чинит «забытые» xfail.
-- `filterwarnings=["error"]` — DeprecationWarning ломает тест. Не даёт коду гнить.
+**What each flag does:**
+- `--strict-markers` — `@pytest.mark.untegration` (typo) will error out, not silently skip.
+- `--strict-config` — unknown option in `pyproject.toml` will error out.
+- `xfail_strict=true` — `xfail` test that suddenly passes = error. Fixes "forgotten" xfails.
+- `filterwarnings=["error"]` — DeprecationWarning breaks the test. Prevents code rot.
 
-## 8. conftest.py — иерархия
+## 8. conftest.py — hierarchy
 
-Один conftest.py на уровень. НЕ один гигантский файл.
+One conftest.py per level. NOT one giant file.
 
 ```
 tests/
-├── conftest.py             # общие: settings, app, client
+├── conftest.py             # shared: settings, app, client
 ├── unit/
-│   ├── conftest.py         # моки сервисов
+│   ├── conftest.py         # service mocks
 │   └── services/
 │       └── test_*.py
 ├── integration/
-│   ├── conftest.py         # БД фикстуры через testcontainers
+│   ├── conftest.py         # DB fixtures via testcontainers
 │   ├── api/
 │   │   └── test_*.py
 │   └── repositories/
 │       └── test_*.py
 └── e2e/
-    └── conftest.py         # полноценный стек
+    └── conftest.py         # full stack
 ```
 
 ```python
-# tests/conftest.py — корень
+# tests/conftest.py — root
 import pytest
 from collections.abc import AsyncIterator
 from httpx import ASGITransport, AsyncClient
@@ -403,7 +403,7 @@ from myservice.config import Settings
 
 @pytest.fixture(scope="session")
 def settings() -> Settings:
-    """Настройки для тестов."""
+    """Settings for tests."""
     return Settings(
         database_url="sqlite+aiosqlite:///:memory:",
         secret_key="test-secret",
@@ -413,7 +413,7 @@ def settings() -> Settings:
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    """HTTP-клиент для тестирования API."""
+    """HTTP client for API testing."""
     app = create_app()
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -422,19 +422,19 @@ async def client() -> AsyncIterator[AsyncClient]:
         yield ac
 
 
-# tests/integration/conftest.py — фикстуры с реальной БД
+# tests/integration/conftest.py — fixtures with real DB
 @pytest.fixture(scope="session")
 def postgres_container():
-    """PostgreSQL через testcontainers — один на всю сессию."""
+    """PostgreSQL via testcontainers — one instance for the whole session."""
     from testcontainers.postgres import PostgresContainer
     with PostgresContainer("postgres:16-alpine") as container:
         yield container
 
 
-# tests/integration/api/conftest.py — фикстуры для API тестов
+# tests/integration/api/conftest.py — fixtures for API tests
 @pytest.fixture
 async def auth_headers(client: AsyncClient) -> dict[str, str]:
-    """Заголовки авторизации для защищённых эндпоинтов."""
+    """Authorization headers for protected endpoints."""
     response = await client.post(
         "/auth/login",
         json={"email": "test@test.com", "password": "secret"},
@@ -451,24 +451,24 @@ async def auth_headers(client: AsyncClient) -> dict[str, str]:
 
 # Part 3: Fixtures
 
-## 9. Fixture Scopes — производительность
+## 9. Fixture Scopes — Performance
 
-Правильный scope = быстрые тесты. Тяжёлые ресурсы создаются **один раз**.
+Correct scope = fast tests. Heavy resources are created **once**.
 
 ```python
-# BAD: Тяжёлая фикстура пересоздаётся на каждый тест (10 минут вместо 30 секунд)
+# BAD: Heavy fixture recreated on every test (10 minutes instead of 30 seconds)
 @pytest.fixture
 def db_engine():
-    engine = create_engine(TEST_DB_URL)  # 500ms каждый раз × 1000 тестов!
+    engine = create_engine(TEST_DB_URL)  # 500ms each time × 1000 tests!
     Base.metadata.create_all(engine)
     yield engine
     engine.dispose()
 
 
-# GOOD: Тяжёлый ресурс — session scope, изоляция через транзакции
+# GOOD: Heavy resource — session scope, isolation via transactions
 @pytest.fixture(scope="session")
 def db_engine():
-    """Движок БД — один на всю сессию тестов."""
+    """DB engine — one instance for the entire test session."""
     engine = create_engine(TEST_DB_URL)
     Base.metadata.create_all(engine)
     yield engine
@@ -478,7 +478,7 @@ def db_engine():
 
 @pytest.fixture
 def db_session(db_engine) -> Iterator[Session]:
-    """Сессия БД — новая для каждого теста, с откатом транзакции."""
+    """DB session — new for each test, with transaction rollback."""
     connection = db_engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection, join_transaction_mode="create_savepoint")
@@ -486,27 +486,27 @@ def db_session(db_engine) -> Iterator[Session]:
     yield session
 
     session.close()
-    transaction.rollback()  # Изоляция между тестами
+    transaction.rollback()  # Isolation between tests
     connection.close()
 ```
 
-**Справочник scope'ов:**
+**Scope reference:**
 
-| Scope | Когда |
+| Scope | When |
 |---|---|
-| `session` | Один раз на запуск pytest. Docker контейнеры, движки БД. |
-| `module` | Один раз на файл с тестами. Тестовые данные внутри файла. |
-| `class` | Один раз на тестовый класс. Редко нужен. |
-| `function` | На каждый тест (default). Сессии БД, mocks, изменяемые данные. |
+| `session` | Once per pytest run. Docker containers, DB engines. |
+| `module` | Once per test file. Test data within the file. |
+| `class` | Once per test class. Rarely needed. |
+| `function` | Per test (default). DB sessions, mocks, mutable data. |
 
 ## 10. Async Fixtures
 
 ```python
-# pytest-asyncio с asyncio_mode="auto" — async фикстуры работают без декоратора
+# pytest-asyncio with asyncio_mode="auto" — async fixtures work without decorator
 
 @pytest.fixture
 async def async_session(async_engine) -> AsyncIterator[AsyncSession]:
-    """Async сессия БД с откатом."""
+    """Async DB session with rollback."""
     async with async_engine.connect() as connection:
         async with connection.begin() as transaction:
             session = AsyncSession(
@@ -523,7 +523,7 @@ async def async_session(async_engine) -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 async def populated_db(async_session: AsyncSession) -> AsyncSession:
-    """БД с тестовыми данными."""
+    """DB with test data."""
     users = [
         UserModel(name=f"User {i}", email=f"user{i}@test.com")
         for i in range(1, 6)
@@ -535,10 +535,10 @@ async def populated_db(async_session: AsyncSession) -> AsyncSession:
 
 ## 11. Factory Fixtures
 
-Фабрики вместо отдельной фикстуры на каждую комбинацию.
+Factories instead of a separate fixture for each combination.
 
 ```python
-# BAD: Отдельная фикстура для каждого случая — 20 фикстур на 20 вариантов
+# BAD: A separate fixture for each case — 20 fixtures for 20 variants
 @pytest.fixture
 def active_user():
     return User(name="Ivan", status="active")
@@ -550,15 +550,15 @@ def inactive_user():
 @pytest.fixture
 def admin_user():
     return User(name="Admin", status="active", role="admin")
-# ... ещё 17 фикстур
+# ... 17 more fixtures
 
 
-# GOOD: Фабричная фикстура — гибкая, компактная
+# GOOD: Factory fixture — flexible, compact
 from collections.abc import Callable
 
 @pytest.fixture
 def make_user() -> Callable[..., User]:
-    """Фабрика пользователей с дефолтами."""
+    """User factory with defaults."""
     counter = 0
 
     def _make_user(
@@ -581,7 +581,7 @@ def make_user() -> Callable[..., User]:
     return _make_user
 
 
-# Использование — компактно
+# Usage — compact
 def test_admin_can_delete_user(make_user) -> None:
     admin = make_user(role=UserRole.ADMIN)
     target = make_user(name="To Delete")
@@ -596,24 +596,24 @@ def test_regular_user_cannot_delete(make_user) -> None:
     assert user.can_delete(target) is False
 ```
 
-## 12. Polyfactory — фабрики для Pydantic
+## 12. Polyfactory — Factories for Pydantic
 
-Для Pydantic / dataclass / SQLAlchemy моделей лучше использовать `polyfactory` вместо ручных фабрик.
+For Pydantic / dataclass / SQLAlchemy models, use `polyfactory` instead of manual factories.
 
 ```python
 from polyfactory.factories.pydantic_factory import ModelFactory
 
 class UserFactory(ModelFactory[User]):
-    """Автоматическая фабрика, генерирует все поля User."""
+    """Automatic factory, generates all User fields."""
     __model__ = User
 
-    # Кастомные значения для конкретных полей
+    # Custom values for specific fields
     role = UserRole.USER
     status = UserStatus.ACTIVE
 
 
 def test_create_user():
-    user = UserFactory.build()  # все поля заполнены валидными значениями
+    user = UserFactory.build()  # all fields filled with valid values
 
     assert user.id is not None
     assert "@" in user.email
@@ -627,17 +627,17 @@ def test_admin_permissions():
 
 
 def test_batch():
-    users = UserFactory.batch(size=10)  # 10 пользователей одной командой
+    users = UserFactory.batch(size=10)  # 10 users in one command
     assert len(users) == 10
 ```
 
-## 13. Cleanup через yield
+## 13. Cleanup via yield
 
 ```python
 # GOOD: yield-based cleanup
 @pytest.fixture
 def temp_dir() -> Iterator[Path]:
-    """Временная директория с автоудалением."""
+    """Temporary directory with auto-cleanup."""
     import tempfile, shutil
     path = Path(tempfile.mkdtemp())
     try:
@@ -649,7 +649,7 @@ def temp_dir() -> Iterator[Path]:
 # GOOD: Async cleanup
 @pytest.fixture
 async def kafka_consumer(kafka_bootstrap: str) -> AsyncIterator[AIOKafkaConsumer]:
-    """Kafka consumer с автозакрытием."""
+    """Kafka consumer with auto-close."""
     consumer = AIOKafkaConsumer(
         "orders.events",
         bootstrap_servers=kafka_bootstrap,
@@ -670,12 +670,12 @@ async def kafka_consumer(kafka_bootstrap: str) -> AsyncIterator[AIOKafkaConsumer
 
 # Part 4: Parametrization
 
-## 14. parametrize вместо копипасты
+## 14. parametrize Instead of Copy-Paste
 
-Один тест, много данных. Аналог JUnit `@ParameterizedTest`.
+One test, many data sets. Analogue of JUnit `@ParameterizedTest`.
 
 ```python
-# BAD: 10 одинаковых тестов
+# BAD: 10 identical tests
 def test_validate_email_valid_standard():
     assert validate_email("user@example.com") is True
 
@@ -684,10 +684,10 @@ def test_validate_email_valid_short():
 
 def test_validate_email_missing_at():
     assert validate_email("userexample.com") is False
-# ... ещё 7
+# ... 7 more
 
 
-# GOOD: parametrize с осмысленными ids
+# GOOD: parametrize with meaningful ids
 @pytest.mark.parametrize(
     ("email", "expected"),
     [
@@ -702,14 +702,14 @@ def test_validate_email_missing_at():
     ],
 )
 def test_validate_email(email: str, expected: bool) -> None:
-    """Валидация email для разных входных данных."""
+    """Email validation for different inputs."""
     assert validate_email(email) is expected
 ```
 
-⚠️ **id обязателен** — в отчётах CI без id увидишь `test_validate_email[user@example.com-True]`,
-с id — `test_validate_email[standard]`. Намного читабельнее.
+⚠️ **id is mandatory** — in CI reports without id you'll see `test_validate_email[user@example.com-True]`,
+with id — `test_validate_email[standard]`. Much more readable.
 
-## 15. parametrize с marks
+## 15. parametrize with marks
 
 ```python
 @pytest.mark.parametrize(
@@ -729,19 +729,19 @@ def test_validate_email(email: str, expected: bool) -> None:
             Decimal("100"),
             None,
             id="insufficient_funds",
-            marks=pytest.mark.skip(reason="требует limit-checker"),
+            marks=pytest.mark.skip(reason="requires limit-checker"),
         ),
     ],
 )
 def test_withdraw(amount, balance, expected): ...
 ```
 
-## 16. Parametrize нескольких аргументов
+## 16. Parametrize Multiple Arguments
 
-Каждая `@pytest.mark.parametrize` умножается:
+Each `@pytest.mark.parametrize` multiplies:
 
 ```python
-# 3 × 2 = 6 тестов автоматически
+# 3 × 2 = 6 tests automatically
 @pytest.mark.parametrize("currency", ["USD", "EUR", "RUB"])
 @pytest.mark.parametrize("amount", [Decimal("10"), Decimal("100")])
 def test_money_construction(currency: str, amount: Decimal) -> None:
@@ -750,12 +750,12 @@ def test_money_construction(currency: str, amount: Decimal) -> None:
     assert money.currency == currency
 ```
 
-## 17. Indirect parametrize — параметризованные фикстуры
+## 17. Indirect parametrize — Parametrized Fixtures
 
 ```python
 @pytest.fixture
 def order_in_status(request) -> Order:
-    """Фикстура создающая заказ в указанном статусе."""
+    """Fixture that creates an order in the given status."""
     status: OrderStatus = request.param
     return Order(id=1, status=status, items=[], total=Decimal("0"))
 
@@ -778,16 +778,16 @@ def test_order_id_present(order_in_status: Order) -> None:
 
 # Part 5: Integration Tests
 
-## 18. testcontainers-python — реальные зависимости
+## 18. testcontainers-python — Real Dependencies
 
 ```python
-# BAD: SQLite вместо Postgres — пропустит баги PG-specific фич
+# BAD: SQLite instead of Postgres — will miss PG-specific feature bugs
 @pytest.fixture(scope="session")
 def db():
-    return create_engine("sqlite:///:memory:")  # Нет JSON, нет ARRAY, нет GIN индексов
+    return create_engine("sqlite:///:memory:")  # No JSON, no ARRAY, no GIN indexes
 
 
-# GOOD: Реальный Postgres через testcontainers
+# GOOD: Real Postgres via testcontainers
 import pytest
 from testcontainers.postgres import PostgresContainer
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
@@ -795,14 +795,14 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 
 @pytest.fixture(scope="session")
 def postgres_container() -> Iterator[PostgresContainer]:
-    """PostgreSQL контейнер — один на сессию (~3 секунды старт)."""
+    """PostgreSQL container — one per session (~3 seconds startup)."""
     with PostgresContainer("postgres:16-alpine", driver="psycopg") as container:
         yield container
 
 
 @pytest.fixture(scope="session")
 async def async_engine(postgres_container: PostgresContainer) -> AsyncIterator[AsyncEngine]:
-    """Async engine, схема создаётся один раз."""
+    """Async engine, schema created once."""
     url = postgres_container.get_connection_url(driver="asyncpg")
     engine = create_async_engine(url, pool_pre_ping=True)
 
@@ -816,7 +816,7 @@ async def async_engine(postgres_container: PostgresContainer) -> AsyncIterator[A
 
 @pytest.fixture
 async def db_session(async_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """Сессия с rollback — изоляция между тестами через savepoint."""
+    """Session with rollback — isolation between tests via savepoint."""
     async with async_engine.connect() as connection:
         await connection.begin()
         async with AsyncSession(
@@ -828,7 +828,7 @@ async def db_session(async_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         await connection.rollback()
 ```
 
-**Другие контейнеры:**
+**Other containers:**
 ```python
 from testcontainers.redis import RedisContainer
 from testcontainers.kafka import KafkaContainer
@@ -848,14 +848,14 @@ def kafka_container():
 
 ## 19. httpx AsyncClient — FastAPI in-process
 
-`httpx.AsyncClient` через `ASGITransport` — НЕ requests, НЕ внешний сервер.
+`httpx.AsyncClient` via `ASGITransport` — NOT requests, NOT an external server.
 
 ```python
-# BAD: requests + запущенный сервер
+# BAD: requests + running server
 import requests
 
 def test_get_user():
-    resp = requests.get("http://localhost:8000/users/1")  # ❌ нужен сервер
+    resp = requests.get("http://localhost:8000/users/1")  # ❌ requires a server
     assert resp.status_code == 200
 
 
@@ -869,7 +869,7 @@ from myservice.api import create_app
 
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    """HTTP-клиент, работает напрямую с FastAPI без сетевого стека."""
+    """HTTP client, works directly with FastAPI without the network stack."""
     app = create_app()
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -879,7 +879,7 @@ async def client() -> AsyncIterator[AsyncClient]:
 
 
 async def test_get_user_returns_user_data(client: AsyncClient, populated_db) -> None:
-    """Получение пользователя возвращает корректные поля."""
+    """Fetching a user returns correct fields."""
     response = await client.get("/users/1")
 
     assert response.status_code == 200
@@ -889,7 +889,7 @@ async def test_get_user_returns_user_data(client: AsyncClient, populated_db) -> 
 
 
 async def test_create_user_returns_201(client: AsyncClient) -> None:
-    """Создание пользователя возвращает 201."""
+    """Creating a user returns 201."""
     payload = {"name": "Ivan", "email": "ivan@test.com"}
 
     response = await client.post("/users", json=payload)
@@ -905,7 +905,7 @@ async def test_create_user_returns_201(client: AsyncClient) -> None:
 
 ```python
 class TestOrdersAPI:
-    """Тесты для /api/orders."""
+    """Tests for /api/orders."""
 
     class TestCreateOrder:
         """POST /api/orders."""
@@ -913,7 +913,7 @@ class TestOrdersAPI:
         async def test_with_valid_request_returns_201_and_order(
             self, client: AsyncClient
         ) -> None:
-            """Валидный запрос — заказ создан, ответ 201, тело корректно."""
+            """Valid request — order created, 201 response, body is correct."""
             request = {
                 "customer_id": 1,
                 "items": [
@@ -931,7 +931,7 @@ class TestOrdersAPI:
             assert data["status"] == "pending"
 
         async def test_with_empty_items_returns_422(self, client: AsyncClient) -> None:
-            """Пустой список items — 422 Unprocessable Entity."""
+            """Empty items list — 422 Unprocessable Entity."""
             request = {"customer_id": 1, "items": []}
 
             response = await client.post("/api/orders", json=request)
@@ -943,7 +943,7 @@ class TestOrdersAPI:
         async def test_persisted_in_db(
             self, client: AsyncClient, db_session: AsyncSession
         ) -> None:
-            """После POST заказ виден в БД."""
+            """After POST the order is visible in DB."""
             response = await client.post("/api/orders", json=build_valid_request())
             order_id = response.json()["id"]
 
@@ -970,17 +970,17 @@ class TestOrdersAPI:
             assert response.json()["code"] == "NOT_FOUND"
 ```
 
-## 21. respx — мокинг внешних HTTP API
+## 21. respx — Mocking External HTTP APIs
 
-Внешние API (платёжки, GigaChat, etc) — `respx` для httpx, `responses` для requests.
+External APIs (payment gateways, GigaChat, etc) — `respx` for httpx, `responses` for requests.
 
 ```python
-# BAD: реальный HTTP к платёжке в тестах — flaky, медленно, может стоить денег
+# BAD: real HTTP to payment gateway in tests — flaky, slow, may cost money
 async def test_process_payment(client):
-    response = await client.post("/api/orders/1/pay")  # ❌ реальный запрос!
+    response = await client.post("/api/orders/1/pay")  # ❌ real request!
 
 
-# GOOD: respx для httpx
+# GOOD: respx for httpx
 import respx
 from httpx import Response
 
@@ -988,7 +988,7 @@ from httpx import Response
 async def test_process_payment_when_gateway_returns_success(
     client: AsyncClient, existing_order: Order
 ) -> None:
-    """Успешная оплата через платёжку."""
+    """Successful payment via payment gateway."""
     payment_route = respx.post("https://gateway.example.com/api/payments").mock(
         return_value=Response(
             200,
@@ -1001,7 +1001,7 @@ async def test_process_payment_when_gateway_returns_success(
     assert response.status_code == 200
     assert response.json()["status"] == "paid"
 
-    # проверяем что запрос был сделан с правильным телом
+    # verify the request was made with the correct body
     assert payment_route.called
     request = payment_route.calls.last.request
     assert json.loads(request.content)["amount"] == "300.00"
@@ -1011,7 +1011,7 @@ async def test_process_payment_when_gateway_returns_success(
 async def test_process_payment_when_gateway_fails_returns_502(
     client: AsyncClient, existing_order: Order
 ) -> None:
-    """Ошибка платёжки — 502 Bad Gateway."""
+    """Payment gateway error — 502 Bad Gateway."""
     respx.post("https://gateway.example.com/api/payments").mock(
         return_value=Response(500, text="Internal Server Error")
     )
@@ -1025,7 +1025,7 @@ async def test_process_payment_when_gateway_fails_returns_502(
 async def test_process_payment_when_gateway_timeout_returns_504(
     client: AsyncClient, existing_order: Order
 ) -> None:
-    """Таймаут платёжки — 504 Gateway Timeout."""
+    """Payment gateway timeout — 504 Gateway Timeout."""
     import httpx
     respx.post("https://gateway.example.com/api/payments").mock(
         side_effect=httpx.TimeoutException("timeout")
@@ -1040,10 +1040,10 @@ async def test_process_payment_when_gateway_timeout_returns_504(
 
 ```python
 class TestOrderRepository:
-    """Интеграция OrderRepository с реальным Postgres."""
+    """Integration of OrderRepository with real Postgres."""
 
     async def test_save_and_find_by_id(self, db_session: AsyncSession) -> None:
-        """Сохранение и чтение по ID."""
+        """Save and find by ID."""
         repo = OrderRepository(db_session)
         order = build_order(customer_id=1)
 
@@ -1056,7 +1056,7 @@ class TestOrderRepository:
     async def test_find_by_status_returns_only_matching(
         self, db_session: AsyncSession
     ) -> None:
-        """Фильтр по статусу возвращает только совпадающие."""
+        """Status filter returns only matching records."""
         repo = OrderRepository(db_session)
         await repo.save(build_order(status=OrderStatus.PENDING))
         await repo.save(build_order(status=OrderStatus.PENDING))
@@ -1068,7 +1068,7 @@ class TestOrderRepository:
         assert all(o.status == OrderStatus.PENDING for o in pending)
 
     async def test_calculate_total_by_customer(self, db_session: AsyncSession) -> None:
-        """Агрегация по клиенту."""
+        """Aggregation by customer."""
         repo = OrderRepository(db_session)
         await repo.save(build_order(customer_id=1, total=Decimal("100")))
         await repo.save(build_order(customer_id=1, total=Decimal("200")))
@@ -1089,10 +1089,10 @@ class TestOrderRepository:
 
 ## 23. pytest-mock — mocker fixture
 
-`pytest-mock` даёт `mocker` fixture с авто-cleanup. Лучше чем `unittest.mock` напрямую.
+`pytest-mock` provides the `mocker` fixture with auto-cleanup. Better than `unittest.mock` directly.
 
 ```python
-# BAD: unittest.mock с ручным management
+# BAD: unittest.mock with manual management
 from unittest.mock import patch
 
 def test_send_notification():
@@ -1101,7 +1101,7 @@ def test_send_notification():
         mock_send.assert_called_once()
 
 
-# GOOD: pytest-mock — auto-cleanup, чище
+# GOOD: pytest-mock — auto-cleanup, cleaner
 def test_send_notification(mocker: MockerFixture) -> None:
     mock_send = mocker.patch("myservice.services.email.send")
 
@@ -1110,21 +1110,21 @@ def test_send_notification(mocker: MockerFixture) -> None:
     mock_send.assert_called_once()
 ```
 
-## 24. autospec — обязательно
+## 24. autospec — Mandatory
 
-`Mock(spec=Class)` или `mocker.create_autospec(Class)` — иначе тест не упадёт от рефакторинга сигнатуры.
+`Mock(spec=Class)` or `mocker.create_autospec(Class)` — otherwise the test won't fail when you refactor a signature.
 
 ```python
-# BAD: голый Mock — переименуй метод и тест всё равно «зелёный»
+# BAD: bare Mock — rename a method and the test stays "green"
 def test_create_order():
     repo = Mock()
-    repo.save_order_lol_typo.return_value = order  # ❌ Mock проглотит любое имя!
+    repo.save_order_lol_typo.return_value = order  # ❌ Mock swallows any name!
     service = OrderService(repo)
     service.create(request)
-    repo.save_order_lol_typo.assert_called()  # ❌ зелёный, но в проде упадёт
+    repo.save_order_lol_typo.assert_called()  # ❌ green, but will fail in production
 
 
-# GOOD: autospec — Mock проверяет что метод реально существует
+# GOOD: autospec — Mock verifies the method actually exists
 def test_create_order(mocker: MockerFixture) -> None:
     repo = mocker.create_autospec(OrderRepository, spec_set=True)
     repo.save.return_value = order
@@ -1133,24 +1133,24 @@ def test_create_order(mocker: MockerFixture) -> None:
     service.create(request)
 
     repo.save.assert_called_once()
-    repo.save_order_lol_typo  # ❌ AttributeError — метод не существует
+    repo.save_order_lol_typo  # ❌ AttributeError — method does not exist
 ```
 
-## 25. Protocol-based fakes — лучше моков
+## 25. Protocol-based fakes — Better than Mocks
 
-Часто проще написать простой fake-класс через Protocol чем настраивать Mock.
+It's often simpler to write a plain fake class via Protocol than to configure a Mock.
 
 ```python
-# Protocol определяет контракт
+# Protocol defines the contract
 class OrderRepository(Protocol):
     async def save(self, order: Order) -> Order: ...
     async def find_by_id(self, order_id: int) -> Order | None: ...
     async def find_by_status(self, status: OrderStatus) -> list[Order]: ...
 
 
-# Простой in-memory fake
+# Simple in-memory fake
 class FakeOrderRepository:
-    """In-memory fake для тестов — нагляднее моков."""
+    """In-memory fake for tests — more readable than mocks."""
 
     def __init__(self) -> None:
         self._storage: dict[int, Order] = {}
@@ -1170,7 +1170,7 @@ class FakeOrderRepository:
         return [o for o in self._storage.values() if o.status == status]
 
 
-# Тест с fake'ом — читается как обычный код
+# Test with fake — reads like regular code
 async def test_create_order_persists_with_pending_status() -> None:
     repo = FakeOrderRepository()
     service = OrderService(repo=repo)
@@ -1182,20 +1182,20 @@ async def test_create_order_persists_with_pending_status() -> None:
     assert (await repo.find_by_id(result.id)) == result
 ```
 
-**Когда fake, когда mock:**
-- **Fake** — если у зависимости 2-5 методов и логика простая (CRUD).
-- **Mock** — если нужно проверить *как именно* был вызван (assert_called_with).
+**When fake, when mock:**
+- **Fake** — if the dependency has 2-5 methods and simple logic (CRUD).
+- **Mock** — if you need to verify *how exactly* it was called (assert_called_with).
 
-## 26. Edge Cases — то для чего нужен mock
+## 26. Edge Cases — What Mocks Are For
 
 ```python
 class TestEdgeCases:
-    """Edge cases для добивания coverage."""
+    """Edge cases for reaching coverage targets."""
 
     async def test_cancel_when_concurrent_update_retries_and_succeeds(
         self, mocker: MockerFixture
     ) -> None:
-        """Concurrent update — retry, и со второй попытки успех."""
+        """Concurrent update — retry, succeeds on second attempt."""
         repo = mocker.create_autospec(OrderRepository, spec_set=True)
         order = build_order(status=OrderStatus.PENDING)
         repo.find_by_id.return_value = order
@@ -1213,7 +1213,7 @@ class TestEdgeCases:
     async def test_create_order_when_notification_fails_still_saves_order(
         self, mocker: MockerFixture
     ) -> None:
-        """Падение нотификации не ломает создание заказа."""
+        """Notification failure does not break order creation."""
         repo = FakeOrderRepository()
         notifier = mocker.create_autospec(NotificationService, spec_set=True)
         notifier.send_order_created.side_effect = NotifierError("email service down")
@@ -1221,13 +1221,13 @@ class TestEdgeCases:
         service = OrderService(repo=repo, notifier=notifier)
         result = await service.create(build_request())
 
-        assert result is not None  # заказ сохранён несмотря на падение notifier
+        assert result is not None  # order saved despite notifier failure
         assert (await repo.find_by_id(result.id)) is not None
 
     async def test_partial_payment_updates_remaining_amount(
         self, mocker: MockerFixture
     ) -> None:
-        """Частичная оплата обновляет remaining_amount."""
+        """Partial payment updates remaining_amount."""
         repo = FakeOrderRepository()
         order = await repo.save(build_order(total=Decimal("1000")))
         gateway = mocker.create_autospec(PaymentGateway, spec_set=True)
@@ -1243,20 +1243,20 @@ class TestEdgeCases:
         assert updated.remaining_amount == Decimal("500")
 ```
 
-## 27. freezegun — заморозка времени
+## 27. freezegun — Freezing Time
 
 ```python
 from freezegun import freeze_time
 
 @freeze_time("2026-01-15 10:00:00")
 def test_create_order_sets_created_at_to_now():
-    """created_at = текущее время."""
+    """created_at = current time."""
     order = order_service.create(request)
     assert order.created_at == datetime(2026, 1, 15, 10, 0, 0)
 
 
 def test_token_expires_after_one_hour():
-    """JWT токен истекает через час."""
+    """JWT token expires after one hour."""
     with freeze_time("2026-01-15 10:00:00"):
         token = auth_service.create_token(user_id=1)
 
@@ -1265,18 +1265,18 @@ def test_token_expires_after_one_hour():
             auth_service.verify(token)
 
 
-# Сдвиг времени внутри теста
+# Time shift within a test
 def test_billing_cycle():
     with freeze_time("2026-01-01") as frozen:
         subscription = create_subscription(user_id=1)
 
-        frozen.tick(timedelta(days=30))  # +30 дней
+        frozen.tick(timedelta(days=30))  # +30 days
         billing_service.process_renewal(subscription.id)
 
         assert subscription.next_billing == datetime(2026, 3, 2)
 ```
 
-⚠️ Альтернатива — `time-machine`. Быстрее на больших проектах, тот же API.
+⚠️ Alternative — `time-machine`. Faster on large projects, same API.
 
 <!-- /section:unit -->
 
@@ -1286,17 +1286,17 @@ def test_billing_cycle():
 
 # Part 7: Property-Based Testing (Hypothesis)
 
-## 28. Зачем property-based
+## 28. Why Property-Based Testing
 
-Hypothesis генерирует тысячи входов, ищет минимальный контрпример, сохраняет регрессионные кейсы в `.hypothesis/`. Один такой тест ловит то, что 50 example-based не поймают.
+Hypothesis generates thousands of inputs, finds the minimal counterexample, saves regression cases in `.hypothesis/`. One such test catches what 50 example-based tests miss.
 
-**Использовать для:**
-- Round-trip сериализация (`from_json(to_json(x)) == x`)
-- Идемпотентность (`f(f(x)) == f(x)`)
-- Монотонность (`a < b → f(a) <= f(b)`)
-- Симметрия (`merge(a, b) == merge(b, a)`)
-- Парсинг (`parse(stringify(x)) == x`)
-- Инварианты бизнес-логики
+**Use for:**
+- Round-trip serialization (`from_json(to_json(x)) == x`)
+- Idempotency (`f(f(x)) == f(x)`)
+- Monotonicity (`a < b → f(a) <= f(b)`)
+- Symmetry (`merge(a, b) == merge(b, a)`)
+- Parsing (`parse(stringify(x)) == x`)
+- Business logic invariants
 
 ```python
 from hypothesis import given, strategies as st
@@ -1304,7 +1304,7 @@ from hypothesis import given, strategies as st
 # Round-trip
 @given(st.decimals(min_value=0, max_value=Decimal("1_000_000"), places=2))
 def test_money_serialization_round_trip(amount: Decimal) -> None:
-    """Money → JSON → Money сохраняет значение."""
+    """Money → JSON → Money preserves the value."""
     money = Money(amount=amount, currency="USD")
 
     serialized = money.to_json()
@@ -1313,7 +1313,7 @@ def test_money_serialization_round_trip(amount: Decimal) -> None:
     assert restored == money
 
 
-# Идемпотентность
+# Idempotency
 @given(st.text())
 def test_normalize_email_is_idempotent(email: str) -> None:
     """normalize(normalize(x)) == normalize(x)."""
@@ -1323,7 +1323,7 @@ def test_normalize_email_is_idempotent(email: str) -> None:
     assert once == twice
 
 
-# Инвариант
+# Invariant
 @given(
     items=st.lists(
         st.builds(
@@ -1336,19 +1336,19 @@ def test_normalize_email_is_idempotent(email: str) -> None:
     ),
 )
 def test_order_total_equals_sum_of_items(items: list[OrderItem]) -> None:
-    """Total всегда == сумма позиций × цен."""
+    """Total always == sum of items × prices."""
     order = Order(items=items)
 
     expected = sum((item.price * item.quantity for item in items), Decimal("0"))
     assert order.calculate_total() == expected
 ```
 
-## 29. Strategies — генераторы данных
+## 29. Strategies — Data Generators
 
 ```python
 from hypothesis import strategies as st
 
-# Базовые
+# Basic
 st.integers(min_value=0, max_value=100)
 st.floats(allow_nan=False, allow_infinity=False, min_value=0, max_value=1e9)
 st.decimals(places=2)
@@ -1361,44 +1361,44 @@ st.emails()
 st.ip_addresses(v=4)
 st.from_regex(r"^[A-Z]{3}-\d{4}$", fullmatch=True)
 
-# Композиция
+# Composition
 st.lists(st.integers(), min_size=1, max_size=10)
 st.dictionaries(keys=st.text(), values=st.integers(), min_size=1)
 st.sets(st.integers())
 st.tuples(st.text(), st.integers())
 
-# st.builds — генерация dataclass/Pydantic
+# st.builds — generating dataclass/Pydantic
 order_strategy = st.builds(
     Order,
     customer_id=st.integers(min_value=1),
     items=st.lists(item_strategy, min_size=1, max_size=20),
 )
 
-# Свои композитные стратегии
+# Custom composite strategies
 @st.composite
 def valid_email_strategy(draw):
-    """Кастомная стратегия для валидных email."""
+    """Custom strategy for valid emails."""
     local = draw(st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", min_size=1, max_size=20))
     domain = draw(st.sampled_from(["example.com", "test.io", "domain.org"]))
     return f"{local}@{domain}"
 ```
 
-## 30. Settings и регрессионные кейсы
+## 30. Settings and Regression Cases
 
 ```python
 from hypothesis import given, settings, example
 
 @given(st.decimals(min_value=0, max_value=Decimal("1_000_000"), places=2))
-@settings(max_examples=500, deadline=None)  # больше примеров, без таймаута
-@example(amount=Decimal("0"))                # обязательно проверить ноль
-@example(amount=Decimal("0.01"))             # минимальное значение
-@example(amount=Decimal("999999.99"))        # граница
+@settings(max_examples=500, deadline=None)  # more examples, no deadline
+@example(amount=Decimal("0"))                # must check zero
+@example(amount=Decimal("0.01"))             # minimum value
+@example(amount=Decimal("999999.99"))        # boundary
 def test_money_serialization(amount: Decimal) -> None:
     money = Money(amount=amount, currency="USD")
     assert Money.from_json(money.to_json()) == money
 ```
 
-Hypothesis **сам сохраняет** упавшие кейсы в `.hypothesis/examples/` — следующий запуск проверит их первыми. Коммить эту директорию.
+Hypothesis **automatically saves** failed cases in `.hypothesis/examples/` — the next run checks them first. Commit this directory.
 
 <!-- /section:property -->
 
@@ -1408,13 +1408,13 @@ Hypothesis **сам сохраняет** упавшие кейсы в `.hypothes
 
 # Part 8: Snapshot Testing
 
-Для сериализаторов, парсеров, генерации текста/JSON — `syrupy` или `inline-snapshot`. Дифф читаем, обновление одной командой. Лучше чем 200 строк ручных `assert`.
+For serializers, parsers, text/JSON generation — `syrupy` or `inline-snapshot`. Diff is readable, update with one command. Better than 200 lines of manual `assert`.
 
 ## 31. syrupy
 
 ```python
 def test_order_serializes_correctly(snapshot):
-    """OrderResponse.model_dump() матчит snapshot."""
+    """OrderResponse.model_dump() matches snapshot."""
     order = build_order(id=1, customer_id=42)
 
     response = OrderResponse.model_validate(order)
@@ -1422,15 +1422,15 @@ def test_order_serializes_correctly(snapshot):
     assert response.model_dump() == snapshot
 
 
-# Запуск с обновлением snapshot'ов:
+# Update snapshots:
 # pytest --snapshot-update
 ```
 
-Snapshot'ы хранятся в `__snapshots__/` рядом с тестом. Изменения коммитятся вместе с кодом — ревью видит дельту.
+Snapshots are stored in `__snapshots__/` next to the test. Changes are committed with the code — the reviewer sees the delta.
 
 ## 32. inline-snapshot
 
-Snapshot прямо в коде теста:
+Snapshot directly in the test code:
 
 ```python
 from inline_snapshot import snapshot
@@ -1449,10 +1449,10 @@ def test_order_response():
     })
 
 
-# Обновление: pytest --inline-snapshot=update
+# Update: pytest --inline-snapshot=update
 ```
 
-Удобно когда snapshot маленький — не надо переключаться между файлами.
+Useful when the snapshot is small — no need to switch between files.
 
 <!-- /section:snapshot -->
 
@@ -1462,17 +1462,17 @@ def test_order_response():
 
 # Part 9: Async Tests
 
-## 33. pytest-asyncio с asyncio_mode="auto"
+## 33. pytest-asyncio with asyncio_mode="auto"
 
 ```toml
 [tool.pytest.ini_options]
-asyncio_mode = "auto"  # все async тесты запускаются автоматически
+asyncio_mode = "auto"  # all async tests run automatically
 ```
 
 ```python
-# С asyncio_mode = "auto" — никаких декораторов
+# With asyncio_mode = "auto" — no decorators needed
 async def test_fetch_user_returns_user(db_session: AsyncSession) -> None:
-    """Получение пользователя из БД."""
+    """Fetching a user from DB."""
     repo = UserRepository(db_session)
     await repo.save(User(name="Ivan", email="ivan@test.com"))
 
@@ -1482,11 +1482,11 @@ async def test_fetch_user_returns_user(db_session: AsyncSession) -> None:
     assert user.name == "Ivan"
 ```
 
-## 34. Параллельные сценарии — TaskGroup
+## 34. Parallel Scenarios — TaskGroup
 
 ```python
 async def test_concurrent_requests_handled_correctly(client: AsyncClient) -> None:
-    """API корректно обрабатывает 5 параллельных запросов."""
+    """API correctly handles 5 concurrent requests."""
     async with asyncio.TaskGroup() as tg:
         tasks = [
             tg.create_task(client.get(f"/users/{uid}"))
@@ -1497,13 +1497,13 @@ async def test_concurrent_requests_handled_correctly(client: AsyncClient) -> Non
     assert all(s == 200 for s in statuses)
 ```
 
-## 35. anyio для backend-agnostic тестов
+## 35. anyio for backend-agnostic tests
 
 ```python
-# Если код использует anyio (FastAPI, asyncpg) — тестируй через anyio
+# If code uses anyio (FastAPI, asyncpg) — test via anyio
 @pytest.mark.anyio
 async def test_works_on_both_asyncio_and_trio():
-    """Тест работает и на asyncio, и на trio backend'е."""
+    """Test works on both asyncio and trio backends."""
     result = await my_anyio_function()
     assert result == "ok"
 
@@ -1521,9 +1521,9 @@ def anyio_backend():
 
 # Part 10: Test Data Builders
 
-## 36. Полноценные builders
+## 36. Full-Featured Builders
 
-Аналог Java TestDataBuilders — отдельный модуль для переиспользования.
+Analogue of Java TestDataBuilders — a separate module for reuse.
 
 ```python
 # tests/fixtures/builders.py
@@ -1533,9 +1533,9 @@ from uuid import uuid4
 
 from myservice.domain.order import Order, OrderItem, OrderStatus
 
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
 # Orders
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
 
 def build_order(
     *,
@@ -1546,7 +1546,7 @@ def build_order(
     total: Decimal = Decimal("300"),
     created_at: datetime | None = None,
 ) -> Order:
-    """Создаёт тестовый Order с переопределяемыми полями."""
+    """Creates a test Order with overridable fields."""
     return Order(
         id=id or 0,
         customer_id=customer_id,
@@ -1563,7 +1563,7 @@ def build_order_item(
     quantity: int = 1,
     price: Decimal = Decimal("100"),
 ) -> OrderItem:
-    """Создаёт OrderItem с дефолтами."""
+    """Creates an OrderItem with defaults."""
     return OrderItem(
         product_id=product_id or hash(uuid4()) % 10000,
         quantity=quantity,
@@ -1579,12 +1579,12 @@ def build_shipped_order() -> Order:
     return build_order(status=OrderStatus.SHIPPED)
 
 
-# ─────────────────────────────────────────────────────────────
-# Requests (для API тестов)
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
+# Requests (for API tests)
+# ─────────────────────────────────────────────────────────────────
 
 def build_valid_order_request() -> dict[str, object]:
-    """Валидное тело запроса для POST /api/orders."""
+    """Valid request body for POST /api/orders."""
     return {
         "customer_id": 1,
         "items": [
@@ -1594,7 +1594,7 @@ def build_valid_order_request() -> dict[str, object]:
     }
 ```
 
-Использование:
+Usage:
 ```python
 from tests.fixtures.builders import build_order, build_pending_order
 
@@ -1606,21 +1606,21 @@ async def test_cancel_pending_order(order_service: OrderService, db_session) -> 
     assert result.status == OrderStatus.CANCELLED
 ```
 
-## 37. Faker — реалистичные данные
+## 37. Faker — Realistic Data
 
 ```python
 from faker import Faker
 
 @pytest.fixture(scope="session")
 def faker() -> Faker:
-    """Faker с фиксированным seed для воспроизводимости."""
+    """Faker with a fixed seed for reproducibility."""
     fake = Faker("ru_RU")
     Faker.seed(42)
     return fake
 
 
 def test_create_user_with_realistic_data(faker: Faker, user_service):
-    """Создание пользователя с реалистичными данными."""
+    """Creating a user with realistic data."""
     user_data = {
         "email": faker.email(),
         "name": faker.name(),
@@ -1640,11 +1640,11 @@ def test_create_user_with_realistic_data(faker: Faker, user_service):
 
 # Part 11: CI & Quality Gates
 
-## 38. Coverage с branch
+## 38. Coverage with branch
 
 ```toml
 [tool.coverage.run]
-branch = true                              # branch coverage, не только line
+branch = true                              # branch coverage, not just line
 source = ["src"]
 omit = [
     "src/*/migrations/*",
@@ -1652,7 +1652,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 80                            # CI падает если < 80%
+fail_under = 80                            # CI fails if < 80%
 show_missing = true
 skip_covered = true
 exclude_lines = [
@@ -1666,10 +1666,10 @@ exclude_lines = [
 ```
 
 ```bash
-# Локальный запуск с отчётом
+# Local run with report
 pytest --cov --cov-report=term-missing
 
-# HTML отчёт
+# HTML report
 pytest --cov --cov-report=html
 open htmlcov/index.html
 
@@ -1677,32 +1677,32 @@ open htmlcov/index.html
 pytest --cov --cov-fail-under=80
 ```
 
-## 39. diff-cover — coverage по дельте PR
+## 39. diff-cover — coverage on PR delta
 
-100% покрытие легаси кода — нереально. Но новый код должен быть покрыт.
+100% coverage for legacy code — unrealistic. But new code must be covered.
 
 ```bash
-# Coverage только для строк изменённых в PR
+# Coverage only for lines changed in the PR
 diff-cover coverage.xml --compare-branch=main --fail-under=90
 ```
 
-В CI: 80% общий + 90% на изменённых строках.
+In CI: 80% overall + 90% on changed lines.
 
-## 40. Параллельный запуск — pytest-xdist
+## 40. Parallel Run — pytest-xdist
 
 ```bash
-# Параллельно по числу CPU
+# Parallel by CPU count
 pytest -n auto
 
-# Конкретное число воркеров
+# Specific number of workers
 pytest -n 4
 ```
 
-⚠️ Если падают параллельно — у тебя shared state. Чини, не отключай xdist. Это ловит interdependence тестов.
+⚠️ If tests fail in parallel — you have shared state. Fix it, don't disable xdist. This catches test interdependencies.
 
-## 41. pytest-randomly — рандомный порядок
+## 41. pytest-randomly — Random Order
 
-Запускает тесты в случайном порядке. Ловит тесты, которые зависят от порядка выполнения.
+Runs tests in random order. Catches tests that depend on execution order.
 
 ```toml
 [project.optional-dependencies]
@@ -1710,31 +1710,31 @@ test = ["pytest-randomly>=3.16"]
 ```
 
 ```bash
-# Сид показывается в выводе — для воспроизведения упавшего запуска
+# Seed is shown in output — to reproduce a failed run
 pytest -p randomly --randomly-seed=12345
 ```
 
-## 42. pytest-timeout — защита от зависаний
+## 42. pytest-timeout — Hang Protection
 
 ```toml
 [tool.pytest.ini_options]
-timeout = 60                # глобальный таймаут 60 секунд
+timeout = 60                # global timeout 60 seconds
 timeout_method = "thread"
 ```
 
 ```python
-# Локально для конкретного теста
+# Locally for a specific test
 @pytest.mark.timeout(5)
 async def test_quick_response():
     ...
 
-# Запретить таймаут (например для slow integration)
+# Disable timeout (e.g. for slow integration tests)
 @pytest.mark.timeout(0)
 async def test_long_migration():
     ...
 ```
 
-## 43. Markers — фильтрация
+## 43. Markers — filtering
 
 ```python
 @pytest.mark.unit
@@ -1752,16 +1752,16 @@ async def test_browser_checkout_flow(): ...
 ```
 
 ```bash
-# Запуск по маркерам
-pytest -m unit                          # только быстрые
-pytest -m "integration and not slow"    # integration без медленных
-pytest -m "not e2e"                     # всё кроме e2e
+# Run by markers
+pytest -m unit                          # fast only
+pytest -m "integration and not slow"    # integration without slow
+pytest -m "not e2e"                     # everything except e2e
 pytest -m "unit or integration"         # unit + integration
 ```
 
-## 44. CI gate — обязательный минимум
+## 44. CI gate — Mandatory Minimum
 
-В каждом PR (`.github/workflows/ci.yml` или аналог):
+In every PR (`.github/workflows/ci.yml` or equivalent):
 
 ```yaml
 - name: Lint
@@ -1799,38 +1799,38 @@ pytest -m "unit or integration"         # unit + integration
 ```toml
 [project.optional-dependencies]
 test = [
-    # Ядро
+    # Core
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-mock>=3.14",
 
-    # Качество прогона
+    # Run quality
     "pytest-randomly>=3.16",
     "pytest-xdist>=3.6",
     "pytest-timeout>=2.3",
 
     # HTTP / FastAPI
     "httpx>=0.28",
-    "respx>=0.22",                # моки httpx
-    # "responses>=0.25",          # моки requests (если используешь requests)
+    "respx>=0.22",                # httpx mocks
+    # "responses>=0.25",          # requests mocks (if using requests)
 
-    # Реальные зависимости
+    # Real dependencies
     "testcontainers[postgres,redis,kafka]>=4.9",
 
-    # Время
+    # Time
     "freezegun>=1.5",
-    # "time-machine>=2.16",       # альтернатива freezegun, быстрее
+    # "time-machine>=2.16",       # alternative to freezegun, faster
 
     # Property-based
     "hypothesis>=6.122",
 
     # Snapshot
     "syrupy>=4.7",
-    # "inline-snapshot>=0.18",    # альтернатива syrupy
+    # "inline-snapshot>=0.18",    # alternative to syrupy
 
     # Test data
-    "polyfactory>=2.18",          # фабрики для Pydantic / dataclass
-    "faker>=33.1",                # реалистичные данные
+    "polyfactory>=2.18",          # factories for Pydantic / dataclass
+    "faker>=33.1",                # realistic data
 
     # Coverage
     "coverage[toml]>=7.6",
@@ -1844,66 +1844,66 @@ test = [
 
 # Quick Checklist
 
-**Структура теста:**
+**Test structure:**
 - [ ] Naming: `test_<unit>_<scenario>_<expected>`
-- [ ] AAA блоки разделены пустыми строками
-- [ ] pytest plain `assert` (не unittest assertEqual)
-- [ ] `pytest.raises` с `match=` для проверки сообщений
-- [ ] `pytest.approx` для float (не для Decimal)
-- [ ] Группировка через классы `class TestXxx`
+- [ ] AAA blocks separated by blank lines
+- [ ] pytest plain `assert` (not unittest assertEqual)
+- [ ] `pytest.raises` with `match=` for message checks
+- [ ] `pytest.approx` for float (not for Decimal)
+- [ ] Grouping via `class TestXxx`
 
 **Configuration:**
-- [ ] `--strict-markers` и `--strict-config` в `addopts`
+- [ ] `--strict-markers` and `--strict-config` in `addopts`
 - [ ] `xfail_strict = true`
-- [ ] `asyncio_mode = "auto"` в `pyproject.toml`
+- [ ] `asyncio_mode = "auto"` in `pyproject.toml`
 - [ ] `filterwarnings = ["error"]`
-- [ ] conftest.py разнесены по уровням, не один корневой
+- [ ] conftest.py split by levels, not one root file
 
 **Fixtures:**
-- [ ] Правильные scope: session для БД/контейнеров, function для данных
-- [ ] Async фикстуры через `AsyncIterator`
-- [ ] Factory fixtures вместо отдельной фикстуры на каждый случай
-- [ ] Cleanup через `yield` + `finally`
+- [ ] Correct scopes: session for DB/containers, function for data
+- [ ] Async fixtures via `AsyncIterator`
+- [ ] Factory fixtures instead of a separate fixture for each case
+- [ ] Cleanup via `yield` + `finally`
 
 **Parametrize:**
-- [ ] `pytest.param(..., id="...")` для всех кейсов — id обязателен
-- [ ] `marks=pytest.mark.xfail(strict=True)` для известных багов
+- [ ] `pytest.param(..., id="...")` for all cases — id is mandatory
+- [ ] `marks=pytest.mark.xfail(strict=True)` for known bugs
 
 **Integration:**
-- [ ] testcontainers для Postgres/Redis/Kafka — НЕ SQLite
-- [ ] httpx AsyncClient + ASGITransport — НЕ requests
-- [ ] respx для внешних HTTP API (не реальные запросы)
-- [ ] Транзакция-rollback fixture для изоляции БД-тестов
+- [ ] testcontainers for Postgres/Redis/Kafka — NOT SQLite
+- [ ] httpx AsyncClient + ASGITransport — NOT requests
+- [ ] respx for external HTTP APIs (no real requests)
+- [ ] Transaction-rollback fixture for DB test isolation
 
 **Unit:**
-- [ ] `mocker` из pytest-mock с `create_autospec(Class, spec_set=True)`
-- [ ] Protocol-based fakes для простых зависимостей (CRUD)
-- [ ] Mock только для внешних — БД/HTTP/email
-- [ ] freezegun/time-machine для проверок времени
+- [ ] `mocker` from pytest-mock with `create_autospec(Class, spec_set=True)`
+- [ ] Protocol-based fakes for simple dependencies (CRUD)
+- [ ] Mock only external dependencies — DB/HTTP/email
+- [ ] freezegun/time-machine for time checks
 
 **Property-based:**
-- [ ] Hypothesis для round-trip, идемпотентности, инвариантов
-- [ ] `@example(...)` для критических кейсов
-- [ ] `.hypothesis/examples/` коммитится в репозиторий
+- [ ] Hypothesis for round-trip, idempotency, invariants
+- [ ] `@example(...)` for critical cases
+- [ ] `.hypothesis/examples/` committed to the repository
 
 **CI Gate:**
-- [ ] Coverage 80% общий, 90% на diff (diff-cover)
-- [ ] `branch = true` в coverage
-- [ ] pytest-randomly включён — порядок рандомизирован
-- [ ] pytest-xdist `-n auto` — параллельный запуск без shared state
-- [ ] pytest-timeout — глобальный таймаут на тест
-- [ ] Markers с фильтрацией: unit / integration / e2e / slow
+- [ ] Coverage 80% overall, 90% on diff (diff-cover)
+- [ ] `branch = true` in coverage
+- [ ] pytest-randomly enabled — order is randomized
+- [ ] pytest-xdist `-n auto` — parallel run without shared state
+- [ ] pytest-timeout — global timeout per test
+- [ ] Markers with filtering: unit / integration / e2e / slow
 
-**Команды:**
+**Commands:**
 ```bash
-pytest                                              # все тесты
-pytest -m "not integration"                         # без integration
-pytest -n auto                                      # параллельно
-pytest --cov --cov-report=term-missing              # с покрытием
-pytest -k "test_create_order"                       # по имени
+pytest                                              # all tests
+pytest -m "not integration"                         # without integration
+pytest -n auto                                      # parallel
+pytest --cov --cov-report=term-missing              # with coverage
+pytest -k "test_create_order"                       # by name
 pytest --lf                                         # last failed
 pytest --ff                                         # failed first
-pytest -x                                           # стоп на первой ошибке
-pytest --pdb                                        # pdb при падении
-pytest -p randomly --randomly-seed=12345            # воспроизвести порядок
+pytest -x                                           # stop on first error
+pytest --pdb                                        # pdb on failure
+pytest -p randomly --randomly-seed=12345            # reproduce order
 ```
