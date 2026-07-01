@@ -118,14 +118,14 @@ class TemplateConfig:
 
 DEFAULT_TEMPLATE = TemplateConfig(
     required_sections=[
-        "Цель инкремента",
-        "Функциональные требования",
-        "Нефункциональные требования",
+        "Increment Goal",
+        "Functional Requirements",
+        "Non-Functional Requirements",
         "Business-flow",
-        "Сценарии использования",
+        "Usage Scenarios",
         "Acceptance criteria",
     ],
-    gwt_sections=["Сценарии использования"],
+    gwt_sections=["Usage Scenarios"],
     numbered_list_sections=["Acceptance criteria"],
     default_min_section_length=50,
 )
@@ -263,8 +263,8 @@ def _split_scenarios(body: str) -> list[str]:
     Split a scenarios section body into individual scenarios.
 
     Recognized formats:
-    1. H3 headings (`### Сценарий 1: ...`), with optional leading indent.
-    2. Numbered list items (`1. Сценарий ...`, `2. ...`).
+    1. H3 headings (`### Scenario 1: ...`), with optional leading indent.
+    2. Numbered list items (`1. Scenario ...`, `2. ...`).
     """
     h3_parts = re.split(r"^\s*###\s+.*$", body, flags=re.MULTILINE)
     if len(h3_parts) > 1:

@@ -13,7 +13,7 @@ Input: task description via stdin (plain text or JSON with "task" key)
 Output: JSON {"sections": [...], "reasoning": "..."}
 
 Usage:
-  echo "Создай React компонент логина" | uv run --script context_router.py
+  echo "Create a React login component" | uv run --script context_router.py
   echo '{"task": "Add FastAPI endpoint"}' | uv run --script context_router.py
 """
 import json
@@ -44,7 +44,6 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "exception", "error handling", "controlleradvice",
         "404", "400", "500", "http status", "error response",
         "exceptionhandler", "validation error",
-        "ошибк", "ошибок",
     ], 8),
     ("java-patterns#search", [
         "serena", "code search", "find reference",
@@ -60,7 +59,7 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
     ], 6),
     ("java-testing#integration", [
         "testcontainers", "podman", "base test", "integration test",
-        "интеграционн", "system test", "sys-test", "системный тест",
+        "system test", "sys-test",
     ], 7),
     ("java-testing#http", [
         "mockmvc", "resttemplate", "rest test", "http test",
@@ -95,7 +94,7 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "props", "children", "memo", "portal",
         "error boundary", "suspense", "tsx", "jsx",
         "button", "form", "modal", "header", "sidebar",
-        "frontend", "компонент", "кнопк", "форм",
+        "frontend",
     ], 10),
     ("react-patterns#nextjs", [
         "next", "nextjs", "next.js", "server component", "client component",
@@ -116,7 +115,6 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "pyproject", "pyproject.toml",
         "ruff", "pyright", "pre-commit",
         "uv lock", "poetry lock", "toolchain",
-        "layout проекта", "структура проекта python",
     ], 4),
     ("python-patterns#typing", [
         "python", ".py",
@@ -128,7 +126,6 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "protocol", "typing.protocol",
         "abc", "abstractmethod",
         "generic[", "generic typing",
-        "аннотации типов", "типизация",
         "type system",
     ], 10),
     ("python-patterns#data", [
@@ -144,19 +141,17 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "python exception", "exceptiongroup",
         "raise from", "raise ... from",
         "custom exception python", "exception hierarchy python",
-        "питон ошибк", "питон исключени",
-        "обработка ошибок python",
         "except*",
     ], 7),
     ("python-patterns#logging", [
         "structlog", "structured logging python",
-        "python logging", "лог в python",
+        "python logging",
         "logger.bind", "contextvars logging",
         "queuehandler",
     ], 5),
     ("python-patterns#io", [
         "pathlib", "path object python",
-        "контекстный менеджер", "context manager python",
+        "context manager python",
         "with statement python",
         "asynccontextmanager", "contextmanager",
         "aiofiles",
@@ -202,18 +197,17 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "backpressure", "rate limit", "rate-limit", "circuit breaker",
         "tenacity",
         "streamingresponse", "streaming response",
-        "sync client", "sync клиент", "синхронный клиент",
-        "блокирующий клиент", "blocking client",
+        "sync client", "blocking client",
         "block event loop", "event loop lag",
-        "многопоточн", "concurrency",
+        "concurrency",
         "httpx", "asyncclient",
         "fastapi performance", "production fastapi",
     ], 9),
 
     # ── Python Testing (separate file) ──
     ("python-testing#philosophy", [
-        "test strategy python", "тестовая стратегия python",
-        "test pyramid python", "что тестировать в python",
+        "test strategy python",
+        "test pyramid python",
         "integration vs unit python",
     ], 4),
     ("python-testing#structure", [
@@ -231,7 +225,7 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "filterwarnings",
     ], 5),
     ("python-testing#fixtures", [
-        "fixture", "фикстур",
+        "fixture",
         "fixture scope", "conftest",
         "session scope", "function scope", "module scope",
         "yield fixture", "factory fixture",
@@ -248,16 +242,14 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
         "asyncclient test", "httpx asyncclient",
         "respx", "responses python",
         "real database test", "real postgres test",
-        "интеграционный тест python",
         "integration test python",
-        "system test", "sys-test", "системный тест",
+        "system test", "sys-test",
     ], 8),
     ("python-testing#unit", [
         "pytest-mock", "mocker fixture",
         "autospec", "create_autospec",
         "fake repository", "protocol fake",
         "freezegun", "time-machine", "freeze time",
-        "юнит-тест python",
         "unit test python",
         "mock python",
     ], 7),
@@ -310,7 +302,7 @@ ROUTING_TABLE: list[tuple[str, list[str], int]] = [
 
     # ── Load Testing (cross-stack; Test scope) ──
     ("load-testing#basics", [
-        "load test", "load testing", "нагрузочн",
+        "load test", "load testing",
         "stress test", "soak test", "endurance test", "spike test",
         "throughput", "rps test", "requests per second",
         "p95", "p99", "latency slo", "sla test",
@@ -335,18 +327,18 @@ COMPANION_RULES: list[tuple[str, str]] = [
     ("java-patterns#", "java-patterns#basics"),
     ("java-testing#", "java-testing#structure"),
     ("react-patterns#", "react-patterns#core"),
-    ("python-patterns#", "python-patterns#typing"),     # baseline для всех Python задач
-    ("python-testing#", "python-testing#structure"),    # baseline для всех pytest задач
-    ("rust-patterns#", "rust-patterns#basics"),         # baseline для всех Rust задач
-    ("rust-testing#", "rust-testing#structure"),        # baseline для всех cargo-test задач
-    ("load-testing#", "load-testing#basics"),           # baseline для всех load задач
+    ("python-patterns#", "python-patterns#typing"),     # baseline for all Python tasks
+    ("python-testing#", "python-testing#structure"),    # baseline for all pytest tasks
+    ("rust-patterns#", "rust-patterns#basics"),         # baseline for all Rust tasks
+    ("rust-testing#", "rust-testing#structure"),        # baseline for all cargo-test tasks
+    ("load-testing#", "load-testing#basics"),           # baseline for all load tasks
 ]
 
 # Detect "test" keyword per stack → auto-include testing sections
 TEST_KEYWORD_RULES: list[tuple[list[str], str]] = [
     # If Java context + "test" mentioned → java-testing#structure
     (["java", "spring", "controller", ".java", "jpa"], "java-testing#structure"),
-    # If Python context + "test/тест" mentioned → python-testing#structure
+    # If Python context + "test" mentioned → python-testing#structure
     (["python", "fastapi", "pydantic", ".py", "pytest", "asyncio"],
      "python-testing#structure"),
     # If Rust context + "test" mentioned → rust-testing#structure
@@ -414,7 +406,7 @@ def route(task: str) -> dict:
             unique.append((companion, 1, "auto-rule"))
 
     # Apply test keyword rules
-    has_test = any(kw in task_norm for kw in ["test", "тест"])
+    has_test = "test" in task_norm
     if has_test:
         for stack_keywords, test_section in TEST_KEYWORD_RULES:
             if any(kw in task_norm for kw in stack_keywords):

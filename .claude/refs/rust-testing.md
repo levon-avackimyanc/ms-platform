@@ -19,7 +19,7 @@ mod tests {
 
     #[test]
     fn cascade_picks_href_when_unique() {
-        let snap = snapshot(vec![link("/person", "Частным клиентам")]);
+        let snap = snapshot(vec![link("/person", "Individual Clients")]);
         let map = build_element_map(&snap, &MapOptions { include_non_interactive: true, ..Default::default() });
         assert_eq!(map.elements[0].locator.strategy, "href");
         assert!(map.elements[0].confidence >= 0.8);

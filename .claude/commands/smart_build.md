@@ -135,7 +135,7 @@ This is advisory — the script exits 1 on FAIL but does not block. The decision
 
 ## Example
 
-**Task:** "Добавь endpoint /users с тестами"
+**Task:** "Add endpoint /users with tests"
 
 1. Router returns:
    ```json

@@ -2,81 +2,81 @@
 
 <!-- section:philosophy -->
 
-## Философия тестирования
+## Testing Philosophy
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│           РЕАЛЬНЫЕ ИНТЕГРАЦИОННЫЕ ТЕСТЫ                        │
-│         (HTTP, Kafka, JDBC с Testcontainers)                    │
+│           REAL INTEGRATION TESTS                               │
+│         (HTTP, Kafka, JDBC with Testcontainers)                 │
 │                                                                 │
-│    → Основная корзина базовых сценариев                        │
-│    → Максимальная стабильность в агентной разработке           │
-│    → Ловят РЕАЛЬНЫЕ баги                                       │
+│    → Core basket of basic scenarios                            │
+│    → Maximum stability in agentic development                  │
+│    → Catch REAL bugs                                           │
 └─────────────────────────────────────────────────────────────────┘
                             +
 ┌─────────────────────────────────────────────────────────────────┐
-│              UNIT ТЕСТЫ С МОКАМИ                                │
+│              UNIT TESTS WITH MOCKS                              │
 │            (Mockito, edge cases)                                │
 │                                                                 │
-│    → Добить coverage до 80/80 JaCoCo                           │
-│    → Edge cases, которые сложно воспроизвести                  │
-│    → Быстрый feedback loop                                     │
+│    → Push coverage to 80/80 JaCoCo                             │
+│    → Edge cases that are hard to reproduce otherwise           │
+│    → Fast feedback loop                                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Правила написания интеграционных тестов
+## Integration Test Writing Rules
 
-### 1. Исследуй реальное использование API
+### 1. Research Real API Usage
 
-Для **medium/hard** функциональности — **пойми как API будут использовать**:
+For **medium/hard** functionality — **understand how the API will be used**:
 
 ```
-Типичный код (CRUD, REST)?
-  → Используй стандартные тестовые корзины (см. ниже)
+Typical code (CRUD, REST)?
+  → Use standard test baskets (see below)
 
-Нетипичный код (интеграции, сложная логика)?
-  → Context7: найди документацию библиотеки и примеры тестов
-  → Пойми реальные сценарии использования
+Atypical code (integrations, complex logic)?
+  → Context7: find library documentation and test examples
+  → Understand real usage scenarios
 ```
 
-**Пример: интеграция с Kafka**
+**Example: Kafka integration**
 ```bash
-# Нетипичный код → ищем как правильно тестировать в Context7
+# Atypical code → find how to properly test in Context7
 mcp__context7__resolve-library-id(libraryName="spring-kafka", query="testing")
 mcp__context7__query-docs(libraryId="...", query="integration test consumer producer")
 ```
 
-**Цель:** Создать оптимальные тестовые сценарии, которые отражают реальное использование, а не просто покрывают код.
+**Goal:** Create optimal test scenarios that reflect real usage, not just cover code.
 
-### 2. Приоритет сценариев
+### 2. Scenario Priority
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  1. ПОЗИТИВНЫЕ СЦЕНАРИИ (сначала!)                             │
-│     → Happy path: валидный запрос → успешный ответ              │
-│     → Основной бизнес-флоу работает                            │
+│  1. POSITIVE SCENARIOS (first!)                                 │
+│     → Happy path: valid request → successful response           │
+│     → Core business flow works                                 │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  2. КРИТИЧЕСКИЕ НЕГАТИВНЫЕ                                      │
-│     → 404: ресурс не найден                                     │
-│     → 400: невалидные данные (пустой ID, null)                 │
-│     → 409: конфликт бизнес-логики                              │
-│     → 401/403: unauthorized/forbidden (если есть auth)         │
+│  2. CRITICAL NEGATIVES                                          │
+│     → 404: resource not found                                   │
+│     → 400: invalid data (empty ID, null)                       │
+│     → 409: business logic conflict                              │
+│     → 401/403: unauthorized/forbidden (if auth is present)     │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  3. EDGE CASES (unit тесты с моками)                           │
-│     → Граничные значения                                        │
+│  3. EDGE CASES (unit tests with mocks)                         │
+│     → Boundary values                                           │
 │     → Concurrent updates                                        │
-│     → Retry логика                                              │
+│     → Retry logic                                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. НЕ пиши в интеграционных тестах
+### 3. DO NOT Write in Integration Tests
 
 ```java
-// ❌ НЕ пиши бенчмарки производительности
+// ❌ DO NOT write performance benchmarks
 @Test
 void createOrder_performanceTest() {
     long start = System.currentTimeMillis();
@@ -87,11 +87,11 @@ void createOrder_performanceTest() {
     assertThat(duration).isLessThan(5000);  // ❌ Flaky!
 }
 
-// ❌ НЕ тестируй throughput
+// ❌ DO NOT test throughput
 @Test
-void api_shouldHandle100RequestsPerSecond() { ... }  // ❌ Для JMeter/Gatling
+void api_shouldHandle100RequestsPerSecond() { ... }  // ❌ Use JMeter/Gatling for this
 
-// ✅ Тестируй функциональность, не скорость
+// ✅ Test functionality, not speed
 @Test
 void createOrder_withValidRequest_returns201() {
     // given
@@ -112,12 +112,12 @@ void createOrder_withValidRequest_returns201() {
 
 <!-- section:structure -->
 
-# Part 1: Базовые паттерны
+# Part 1: Basic Patterns
 
 ## 1. Naming Convention
 
 ```java
-// Формат: method_condition_expectedResult
+// Format: method_condition_expectedResult
 @Test
 void createOrder_withValidItems_returnsOrderWithCorrectTotal() { ... }
 
@@ -130,7 +130,7 @@ void findById_whenOrderNotFound_throwsNotFoundException() { ... }
 
 ## 2. Given-When-Then Structure
 
-Комментарии `// given`, `// when`, `// then` **обязательны**.
+Comments `// given`, `// when`, `// then` **are required**.
 
 ```java
 @Test
@@ -149,18 +149,18 @@ void createOrder_withValidItems_calculatesCorrectTotal() {
 ## 3. AssertJ — Fluent Assertions
 
 ```java
-// Коллекции
+// Collections
 assertThat(orders)
     .hasSize(2)
     .extracting(Order::getStatus)
     .containsExactly(OrderStatus.CREATED, OrderStatus.SHIPPED);
 
-// Исключения
+// Exceptions
 assertThatThrownBy(() -> service.findById(null))
     .isInstanceOf(IllegalArgumentException.class)
     .hasMessageContaining("id cannot be blank");
 
-// Объекты
+// Objects
 assertThat(result)
     .isNotNull()
     .satisfies(order -> {
@@ -172,21 +172,21 @@ assertThat(result)
 ## 4. Allure Annotations
 
 ```java
-@Epic("Заказы")
-@Feature("Создание заказа")
+@Epic("Orders")
+@Feature("Order Creation")
 class OrderServiceIntegrationTest {
 
     @Test
-    @Story("Успешное создание")
-    @Description("Проверяет создание заказа с валидными данными и расчёт итоговой суммы")
+    @Story("Successful Creation")
+    @Description("Verifies order creation with valid data and total amount calculation")
     @Severity(SeverityLevel.CRITICAL)
     void createOrder_withValidItems_success() {
         // ...
     }
 
     @Test
-    @Story("Валидация")
-    @Description("Проверяет отклонение заказа без товаров")
+    @Story("Validation")
+    @Description("Verifies order rejection without items")
     @Severity(SeverityLevel.NORMAL)
     void createOrder_withEmptyItems_throwsException() {
         // ...
@@ -194,11 +194,11 @@ class OrderServiceIntegrationTest {
 }
 ```
 
-### Allure @Step для читаемых отчётов
+### Allure @Step for Readable Reports
 
 ```java
 @Test
-@Story("Полный цикл заказа")
+@Story("Full Order Lifecycle")
 void orderLifecycle_fromCreationToDelivery() {
     // given
     final String orderId = createOrder();
@@ -212,29 +212,29 @@ void orderLifecycle_fromCreationToDelivery() {
     assertOrderStatus(orderId, OrderStatus.DELIVERED);
 }
 
-@Step("Создаём заказ")
+@Step("Create order")
 private String createOrder() {
     final CreateOrderRequest request = createValidRequest();
     final Order order = orderService.createOrder(request);
     return order.getId();
 }
 
-@Step("Оплачиваем заказ {orderId}")
+@Step("Pay for order {orderId}")
 private void payForOrder(final String orderId) {
     paymentService.processPayment(orderId);
 }
 
-@Step("Отправляем заказ {orderId}")
+@Step("Ship order {orderId}")
 private void shipOrder(final String orderId) {
     shippingService.ship(orderId);
 }
 
-@Step("Доставляем заказ {orderId}")
+@Step("Deliver order {orderId}")
 private void deliverOrder(final String orderId) {
     deliveryService.deliver(orderId);
 }
 
-@Step("Проверяем статус заказа {orderId} = {expectedStatus}")
+@Step("Verify order status {orderId} = {expectedStatus}")
 private void assertOrderStatus(final String orderId, final OrderStatus expectedStatus) {
     final Order order = orderService.findById(orderId);
     assertThat(order.getStatus()).isEqualTo(expectedStatus);
@@ -243,10 +243,10 @@ private void assertOrderStatus(final String orderId, final OrderStatus expectedS
 
 ## 5. Nested Test Classes
 
-Группировка тестов по сценариям. Улучшает читаемость в Allure.
+Grouping tests by scenario. Improves readability in Allure.
 
 ```java
-@Epic("Заказы")
+@Epic("Orders")
 @Feature("OrderService")
 class OrderServiceIntegrationTest extends BaseIntegrationTest {
 
@@ -255,7 +255,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
     class CreateOrder {
 
         @Test
-        @Story("Успешное создание")
+        @Story("Successful Creation")
         void withValidItems_returnsOrderWithCorrectTotal() {
             // given
             final CreateOrderRequest request = createValidRequest();
@@ -269,7 +269,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Валидация")
+        @Story("Validation")
         void withEmptyItems_throwsIllegalArgumentException() {
             // given
             final CreateOrderRequest request = CreateOrderRequest.builder()
@@ -283,7 +283,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Валидация")
+        @Story("Validation")
         void withNullCustomerId_throwsIllegalArgumentException() {
             // given
             final CreateOrderRequest request = CreateOrderRequest.builder()
@@ -303,7 +303,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
     class FindById {
 
         @Test
-        @Story("Успешный поиск")
+        @Story("Successful Search")
         void whenExists_returnsOrder() {
             // given
             final Order created = orderService.createOrder(createValidRequest());
@@ -316,7 +316,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Обработка ошибок")
+        @Story("Error Handling")
         void whenNotFound_throwsNotFoundException() {
             // when & then
             assertThatThrownBy(() -> orderService.findById("non-existent"))
@@ -329,7 +329,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
     class Cancel {
 
         @Test
-        @Story("Успешная отмена")
+        @Story("Successful Cancellation")
         void whenCreated_cancelsSuccessfully() {
             // given
             final Order order = orderService.createOrder(createValidRequest());
@@ -342,7 +342,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Бизнес-правила")
+        @Story("Business Rules")
         void whenShipped_throwsConflictException() {
             // given
             final Order order = createShippedOrder();
@@ -350,7 +350,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             // when & then
             assertThatThrownBy(() -> orderService.cancel(order.getId()))
                 .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("отправленный");
+                .hasMessageContaining("shipped");
         }
     }
 }
@@ -362,41 +362,41 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
 
 <!-- section:integration -->
 
-# Part 2: Реальные интеграционные тесты
+# Part 2: Real Integration Tests
 
 ## 6. Podman + Testcontainers
 
-**Используй Podman вместо Docker.** Настройка для разных ОС:
+**Use Podman instead of Docker.** Configuration for different OSes:
 
 ### Linux
 
 ```bash
-# ~/.bashrc или ~/.zshrc
+# ~/.bashrc or ~/.zshrc
 export DOCKER_HOST=unix://${XDG_RUNTIME_DIR}/podman/podman.sock
 ```
 
 ### MacOS
 
 ```bash
-# ~/.bashrc или ~/.zshrc
+# ~/.bashrc or ~/.zshrc
 export DOCKER_HOST=unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
 export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 ```
 
-### Rootless режим (отключить Ryuk)
+### Rootless mode (disable Ryuk)
 
 ```bash
-# Ryuk не работает в rootless режиме
+# Ryuk does not work in rootless mode
 export TESTCONTAINERS_RYUK_DISABLED=true
 ```
 
-### Проверка
+### Verification
 
 ```bash
-# Podman запущен?
+# Is Podman running?
 podman info
 
-# Testcontainers видит Podman?
+# Does Testcontainers detect Podman?
 mvn test -Dtest=SomeIT -X | grep -i "docker\|podman"
 ```
 
@@ -404,35 +404,35 @@ mvn test -Dtest=SomeIT -X | grep -i "docker\|podman"
 
 ```java
 /**
- * Базовый класс для интеграционных тестов.
- * Поднимает реальные PostgreSQL и Kafka через Testcontainers.
+ * Base class for integration tests.
+ * Starts real PostgreSQL and Kafka via Testcontainers.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @ActiveProfiles("test")
 public abstract class BaseIntegrationTest {
 
-    /** PostgreSQL контейнер — один на все тесты. */
+    /** PostgreSQL container — shared across all tests. */
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
-    /** Kafka контейнер — один на все тесты. */
+    /** Kafka container — shared across all tests. */
     @Container
     @ServiceConnection
     static KafkaContainer kafka = new KafkaContainer(
         DockerImageName.parse("confluentinc/cp-kafka:7.5.0")
     );
 
-    /** HTTP клиент для тестирования REST API. */
+    /** HTTP client for testing the REST API. */
     @Autowired
     protected TestRestTemplate restTemplate;
 
-    /** Kafka consumer для проверки отправленных сообщений. */
+    /** Kafka consumer for verifying sent messages. */
     @Autowired
     protected KafkaTemplate<String, String> kafkaTemplate;
 
-    /** Репозиторий для подготовки тестовых данных. */
+    /** Repository for preparing test data. */
     @Autowired
     protected OrderRepository orderRepository;
 
@@ -447,11 +447,11 @@ public abstract class BaseIntegrationTest {
 
 ```yaml
 spring:
-  # Testcontainers настроит автоматически через @ServiceConnection
+  # Testcontainers will configure automatically via @ServiceConnection
   datasource:
-    # Будет переопределено Testcontainers
+    # Will be overridden by Testcontainers
   kafka:
-    # Будет переопределено Testcontainers
+    # Will be overridden by Testcontainers
 
   jpa:
     hibernate:
@@ -480,7 +480,7 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
     class CreateOrderEndpoint {
 
         @Test
-        @Story("Успешное создание")
+        @Story("Successful Creation")
         @Severity(SeverityLevel.CRITICAL)
         void withValidRequest_returns201AndOrder() {
             // given
@@ -511,7 +511,7 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Валидация")
+        @Story("Validation")
         void withEmptyItems_returns400() {
             // given
             final CreateOrderRequest request = CreateOrderRequest.builder()
@@ -537,7 +537,7 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
     class GetOrderEndpoint {
 
         @Test
-        @Story("Успешный запрос")
+        @Story("Successful Request")
         void whenExists_returns200AndOrder() {
             // given
             final Order saved = orderRepository.save(createTestOrder());
@@ -555,7 +555,7 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Обработка ошибок")
+        @Story("Error Handling")
         void whenNotFound_returns404() {
             // when
             final ResponseEntity<ErrorResponse> response = restTemplate.getForEntity(
@@ -582,10 +582,10 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
 @Feature("Order Events")
 class OrderKafkaIntegrationTest extends BaseIntegrationTest {
 
-    /** Topic для событий заказов. */
+    /** Topic for order events. */
     private static final String ORDERS_TOPIC = "orders.events";
 
-    /** Consumer для чтения сообщений из Kafka. */
+    /** Consumer for reading messages from Kafka. */
     @Autowired
     private KafkaConsumer<String, OrderEvent> kafkaConsumer;
 
@@ -595,7 +595,7 @@ class OrderKafkaIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @Story("Отправка событий")
+    @Story("Event Publishing")
     @Severity(SeverityLevel.CRITICAL)
     void createOrder_publishesOrderCreatedEvent() {
         // given
@@ -604,7 +604,7 @@ class OrderKafkaIntegrationTest extends BaseIntegrationTest {
         // when
         restTemplate.postForEntity("/api/orders", request, Order.class);
 
-        // then — проверяем что событие ушло в Kafka
+        // then — verify that the event was sent to Kafka
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             final ConsumerRecords<String, OrderEvent> records =
                 kafkaConsumer.poll(Duration.ofMillis(100));
@@ -618,16 +618,16 @@ class OrderKafkaIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @Story("Обработка входящих событий")
+    @Story("Incoming Event Processing")
     void paymentCompletedEvent_updatesOrderStatus() {
         // given
         final Order order = orderRepository.save(createTestOrder());
         final PaymentCompletedEvent event = new PaymentCompletedEvent(order.getId());
 
-        // when — отправляем событие в Kafka
+        // when — send event to Kafka
         kafkaTemplate.send("payments.events", event.getOrderId(), toJson(event));
 
-        // then — проверяем что заказ обновился в БД
+        // then — verify that the order was updated in the DB
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             final Order updated = orderRepository.findById(order.getId()).orElseThrow();
             assertThat(updated.getStatus()).isEqualTo(OrderStatus.PAID);
@@ -652,7 +652,7 @@ class OrderRepositoryIntegrationTest extends BaseIntegrationTest {
     class CustomQueries {
 
         @Test
-        @Story("Поиск по статусу")
+        @Story("Search by Status")
         void findByStatus_returnsMatchingOrders() {
             // given
             orderRepository.saveAll(List.of(
@@ -670,7 +670,7 @@ class OrderRepositoryIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Поиск по клиенту")
+        @Story("Search by Customer")
         void findByCustomerId_returnsCustomerOrders() {
             // given
             orderRepository.saveAll(List.of(
@@ -687,7 +687,7 @@ class OrderRepositoryIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
-        @Story("Агрегация")
+        @Story("Aggregation")
         void calculateTotalByCustomer_returnsCorrectSum() {
             // given
             orderRepository.saveAll(List.of(
@@ -709,7 +709,7 @@ class OrderRepositoryIntegrationTest extends BaseIntegrationTest {
     class Transactions {
 
         @Test
-        @Story("Rollback при ошибке")
+        @Story("Rollback on Error")
         void whenExceptionThrown_rollbacksTransaction() {
             // given
             final int initialCount = (int) orderRepository.count();
@@ -738,7 +738,7 @@ class OrderRepositoryIntegrationTest extends BaseIntegrationTest {
 class PaymentGatewayIntegrationTest extends BaseIntegrationTest {
 
     @Test
-    @Story("Успешная оплата")
+    @Story("Successful Payment")
     void processPayment_whenGatewayReturnsSuccess_updatesOrder() {
         // given
         final Order order = orderRepository.save(createTestOrder());
@@ -771,7 +771,7 @@ class PaymentGatewayIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @Story("Ошибка шлюза")
+    @Story("Gateway Error")
     void processPayment_whenGatewayFails_returns502() {
         // given
         final Order order = orderRepository.save(createTestOrder());
@@ -794,7 +794,7 @@ class PaymentGatewayIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @Story("Таймаут")
+    @Story("Timeout")
     void processPayment_whenGatewayTimeout_returns504() {
         // given
         final Order order = orderRepository.save(createTestOrder());
@@ -824,14 +824,14 @@ class PaymentGatewayIntegrationTest extends BaseIntegrationTest {
 
 <!-- section:mockito -->
 
-# Part 3: Unit тесты с Mocks (для Coverage)
+# Part 3: Unit Tests with Mocks (for Coverage)
 
-## 12. Mockito для Edge Cases
+## 12. Mockito for Edge Cases
 
 ```java
 /**
- * Unit тесты для добития coverage.
- * Edge cases, которые сложно воспроизвести в интеграционных тестах.
+ * Unit tests for reaching coverage.
+ * Edge cases that are hard to reproduce in integration tests.
  */
 @Epic("Unit Tests")
 @Feature("OrderService")
@@ -887,7 +887,7 @@ class OrderServiceUnitTest {
             // when
             final Order result = orderService.createOrder(request);
 
-            // then — заказ сохранён несмотря на ошибку уведомления
+            // then — order is saved despite notification error
             assertThat(result).isNotNull();
             verify(orderRepository).save(any());
         }
@@ -949,26 +949,26 @@ class OrderServiceUnitTest {
 
 ## 13. Base E2E Test Class
 
-Для проектов с frontend — E2E тесты через **Selenide** и **BrowserWebDriverContainer**.
+For projects with a frontend — E2E tests via **Selenide** and **BrowserWebDriverContainer**.
 
 ```java
 /**
- * Базовый класс для E2E тестов.
- * Поднимает headless браузер в Docker/Podman контейнере.
+ * Base class for E2E tests.
+ * Starts a headless browser in a Docker/Podman container.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @ActiveProfiles("test")
 public abstract class BaseE2ETest {
 
-    /** Порт приложения — Spring Boot назначает при запуске. */
+    /** Application port — assigned by Spring Boot at startup. */
     @LocalServerPort
     protected int port;
 
     /**
-     * Браузер в контейнере.
-     * seleniarm — для ARM64 (Apple M1/M2/M3).
-     * VNC доступен на порту 5900 для отладки.
+     * Browser in container.
+     * seleniarm — for ARM64 (Apple M1/M2/M3).
+     * VNC available on port 5900 for debugging.
      */
     @Container
     static BrowserWebDriverContainer<?> browser = new BrowserWebDriverContainer<>(
@@ -976,7 +976,7 @@ public abstract class BaseE2ETest {
                 .asCompatibleSubstituteFor("selenium/standalone-chrome"))
         .withCapabilities(chromeOptions());
 
-    /** Chrome опции для headless режима. */
+    /** Chrome options for headless mode. */
     private static ChromeOptions chromeOptions() {
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
@@ -990,10 +990,10 @@ public abstract class BaseE2ETest {
 
     @BeforeAll
     static void setupSelenide() {
-        // Подключаем Selenide к браузеру в контейнере
+        // Connect Selenide to the browser in the container
         Configuration.remote = browser.getSeleniumAddress().toString();
 
-        // Allure интеграция для скриншотов
+        // Allure integration for screenshots
         SelenideLogger.addListener("AllureSelenide",
             new AllureSelenide()
                 .screenshots(true)
@@ -1003,10 +1003,10 @@ public abstract class BaseE2ETest {
 
     @BeforeEach
     void setupBaseUrl() {
-        // host.containers.internal — для Podman (localhost не работает из контейнера)
+        // host.containers.internal — for Podman (localhost does not work from inside the container)
         Configuration.baseUrl = "http://host.containers.internal:" + port;
 
-        // Таймауты
+        // Timeouts
         Configuration.timeout = 10_000;
         Configuration.pageLoadTimeout = 30_000;
     }
@@ -1018,40 +1018,40 @@ public abstract class BaseE2ETest {
 }
 ```
 
-### Важные моменты
+### Key Notes
 
-| Аспект | Решение |
+| Aspect | Solution |
 |--------|---------|
-| **ARM64 Mac** | `seleniarm/standalone-chromium` вместо `selenium/standalone-chrome` |
-| **Podman** | `host.containers.internal` вместо `localhost` |
+| **ARM64 Mac** | `seleniarm/standalone-chromium` instead of `selenium/standalone-chrome` |
+| **Podman** | `host.containers.internal` instead of `localhost` |
 | **Headless** | `--no-sandbox`, `--disable-gpu`, `--disable-dev-shm-usage` |
-| **Allure** | `AllureSelenide` для скриншотов и page source |
+| **Allure** | `AllureSelenide` for screenshots and page source |
 
 ## 14. E2E Test Example
 
 ```java
 @Epic("UI")
-@Feature("Каталог")
+@Feature("Catalog")
 class CatalogPageIT extends BaseE2ETest {
 
     @Nested
-    @DisplayName("Каталог товаров")
+    @DisplayName("Product Catalog")
     class CatalogTests {
 
         @Test
-        @Story("Загрузка каталога")
+        @Story("Catalog Loading")
         @Severity(SeverityLevel.CRITICAL)
         void catalogPage_loadsSuccessfully() {
             // when
             open("/catalog");
 
             // then
-            $("h1").shouldHave(text("Каталог"));
+            $("h1").shouldHave(text("Catalog"));
             $$(".product-card").shouldHave(sizeGreaterThan(0));
         }
 
         @Test
-        @Story("Поиск товара")
+        @Story("Product Search")
         void searchProduct_findsMatchingItems() {
             // given
             open("/catalog");
@@ -1067,7 +1067,7 @@ class CatalogPageIT extends BaseE2ETest {
         }
 
         @Test
-        @Story("Фильтрация")
+        @Story("Filtering")
         void filterByCategory_showsOnlyMatchingProducts() {
             // given
             open("/catalog");
@@ -1084,11 +1084,11 @@ class CatalogPageIT extends BaseE2ETest {
     }
 
     @Nested
-    @DisplayName("Карточка товара")
+    @DisplayName("Product Card")
     class ProductCardTests {
 
         @Test
-        @Story("Переход к товару")
+        @Story("Navigate to Product")
         void clickOnProduct_opensProductPage() {
             // given
             open("/catalog");
@@ -1104,7 +1104,7 @@ class CatalogPageIT extends BaseE2ETest {
         }
 
         @Test
-        @Story("Добавление в корзину")
+        @Story("Add to Cart")
         void addToCart_updatesCartBadge() {
             // given
             open("/catalog");
@@ -1120,11 +1120,11 @@ class CatalogPageIT extends BaseE2ETest {
 }
 ```
 
-## 15. E2E с авторизацией
+## 15. E2E with Authorization
 
 ```java
 @Epic("UI")
-@Feature("Личный кабинет")
+@Feature("User Profile")
 class UserProfileIT extends BaseE2ETest {
 
     @BeforeEach
@@ -1134,12 +1134,12 @@ class UserProfileIT extends BaseE2ETest {
         $("[data-testid='password']").setValue("password123");
         $("[data-testid='login-button']").click();
 
-        // Ждём редирект после успешной авторизации
-        $("h1").shouldHave(text("Личный кабинет"));
+        // Wait for redirect after successful authorization
+        $("h1").shouldHave(text("User Profile"));
     }
 
     @Test
-    @Story("Профиль пользователя")
+    @Story("User Profile")
     void userProfile_showsUserData() {
         // then
         $("[data-testid='user-email']").shouldHave(text("test@example.com"));
@@ -1147,7 +1147,7 @@ class UserProfileIT extends BaseE2ETest {
     }
 
     @Test
-    @Story("Редактирование профиля")
+    @Story("Profile Editing")
     void editProfile_savesChanges() {
         // when
         $("[data-testid='edit-profile']").click();
@@ -1161,10 +1161,10 @@ class UserProfileIT extends BaseE2ETest {
 }
 ```
 
-## 16. Page Objects (опционально)
+## 16. Page Objects (optional)
 
 ```java
-/** Page Object для страницы каталога. */
+/** Page Object for the catalog page. */
 public class CatalogPage {
 
     public static void open() {
@@ -1183,13 +1183,13 @@ public class CatalogPage {
         return $$(".product-card");
     }
 
-    @Step("Поиск товара: {query}")
+    @Step("Search product: {query}")
     public static void search(String query) {
         searchInput().setValue(query);
         searchButton().click();
     }
 
-    @Step("Фильтрация по категории: {category}")
+    @Step("Filter by category: {category}")
     public static void filterByCategory(String category) {
         $("[data-testid='category-filter']").click();
         $("[data-value='" + category + "']").click();
@@ -1197,7 +1197,7 @@ public class CatalogPage {
 }
 ```
 
-Использование:
+Usage:
 ```java
 @Test
 void searchProduct_findsItems() {
@@ -1207,7 +1207,7 @@ void searchProduct_findsItems() {
 }
 ```
 
-## 17. Dependencies для E2E
+## 17. E2E Dependencies
 
 ```xml
 <!-- Selenide -->
@@ -1234,10 +1234,10 @@ void searchProduct_findsItems() {
 </dependency>
 ```
 
-## 18. Docker Images для разных платформ
+## 18. Docker Images for Different Platforms
 
 ```java
-// Универсальный способ — определяем архитектуру
+// Universal approach — detect architecture
 private static DockerImageName getBrowserImage() {
     String arch = System.getProperty("os.arch").toLowerCase();
 
@@ -1260,12 +1260,12 @@ static BrowserWebDriverContainer<?> browser = new BrowserWebDriverContainer<>(ge
 
 # Part 5: Test Data Builders
 
-## 19. Переиспользуемые builders
+## 19. Reusable Builders
 
 ```java
 /**
- * Builders для тестовых данных.
- * Вынесены в отдельный класс для переиспользования.
+ * Builders for test data.
+ * Extracted into a separate class for reuse.
  */
 public final class TestDataBuilders {
 
@@ -1275,7 +1275,7 @@ public final class TestDataBuilders {
     // Orders
     // ─────────────────────────────────────────────────────────────
 
-    /** Создаёт валидный запрос на создание заказа. */
+    /** Creates a valid order creation request. */
     public static CreateOrderRequest createValidRequest() {
         return CreateOrderRequest.builder()
             .customerId("customer-" + UUID.randomUUID())
@@ -1286,7 +1286,7 @@ public final class TestDataBuilders {
             .build();
     }
 
-    /** Создаёт тестовый заказ с дефолтными значениями. */
+    /** Creates a test order with default values. */
     public static Order createTestOrder() {
         return Order.builder()
             .id("order-" + UUID.randomUUID())
@@ -1298,21 +1298,21 @@ public final class TestDataBuilders {
             .build();
     }
 
-    /** Создаёт заказ с указанным статусом. */
+    /** Creates an order with the specified status. */
     public static Order createOrderWithStatus(final OrderStatus status) {
         return createTestOrder().toBuilder()
             .status(status)
             .build();
     }
 
-    /** Создаёт заказ для указанного клиента. */
+    /** Creates an order for the specified customer. */
     public static Order createOrderForCustomer(final String customerId) {
         return createTestOrder().toBuilder()
             .customerId(customerId)
             .build();
     }
 
-    /** Создаёт заказ с указанной суммой. */
+    /** Creates an order with the specified total. */
     public static Order createOrderWithTotal(final String customerId, final BigDecimal total) {
         return createTestOrder().toBuilder()
             .customerId(customerId)
@@ -1320,7 +1320,7 @@ public final class TestDataBuilders {
             .build();
     }
 
-    /** Создаёт отправленный заказ (для тестов отмены). */
+    /** Creates a shipped order (for cancellation tests). */
     public static Order createShippedOrder() {
         return createOrderWithStatus(OrderStatus.SHIPPED);
     }
@@ -1329,12 +1329,12 @@ public final class TestDataBuilders {
     // Items
     // ─────────────────────────────────────────────────────────────
 
-    /** Создаёт тестовый товар. */
+    /** Creates a test item. */
     public static ItemDto createTestItem() {
         return new ItemDto("product-" + UUID.randomUUID(), BigDecimal.valueOf(100));
     }
 
-    /** Создаёт валидный товар. */
+    /** Creates a valid item. */
     public static ItemDto createValidItem() {
         return createTestItem();
     }
@@ -1347,7 +1347,7 @@ public final class TestDataBuilders {
         .registerModule(new JavaTimeModule())
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    /** Конвертирует объект в JSON. */
+    /** Converts an object to JSON. */
     @SneakyThrows
     public static String toJson(final Object obj) {
         return MAPPER.writeValueAsString(obj);
@@ -1355,7 +1355,7 @@ public final class TestDataBuilders {
 }
 ```
 
-Использование в тестах:
+Usage in tests:
 ```java
 import static com.example.TestDataBuilders.*;
 
@@ -1383,7 +1383,7 @@ class OrderServiceTest {
 
 # Part 6: Package Structure & Maven Configuration
 
-## 20. Разделение Unit и Integration Tests
+## 20. Separating Unit and Integration Tests
 
 ```
 src/
@@ -1394,11 +1394,11 @@ src/
 │       └── repository/
 └── test/java/
     └── com/example/order/
-        ├── unit/                          # Unit тесты (Surefire)
+        ├── unit/                          # Unit tests (Surefire)
         │   ├── service/
         │   │   └── OrderServiceTest.java  # *Test.java
         │   └── TestDataBuilders.java
-        └── integration/                   # Integration тесты (Failsafe)
+        └── integration/                   # Integration tests (Failsafe)
             ├── BaseIntegrationTest.java
             ├── api/
             │   └── OrderControllerIT.java # *IT.java
@@ -1409,8 +1409,8 @@ src/
 ```
 
 **Naming conventions:**
-- `*Test.java` — Unit тесты → **Surefire** (mvn test)
-- `*IT.java` — Integration тесты → **Failsafe** (mvn verify)
+- `*Test.java` — Unit tests → **Surefire** (mvn test)
+- `*IT.java` — Integration tests → **Failsafe** (mvn verify)
 
 ## 21. Properties
 
@@ -1422,7 +1422,7 @@ src/
     <surefire.version>3.5.3</surefire.version>
     <failsafe.version>3.5.3</failsafe.version>
 
-    <!-- JaCoCo пишет сюда свой -javaagent, пустой по умолчанию -->
+    <!-- JaCoCo writes its -javaagent here, empty by default -->
     <argLine></argLine>
 </properties>
 ```
@@ -1435,7 +1435,7 @@ src/
     <artifactId>jacoco-maven-plugin</artifactId>
     <version>${jacoco.version}</version>
     <executions>
-        <!-- Пишет -javaagent в property argLine -->
+        <!-- Writes -javaagent into the argLine property -->
         <execution>
             <id>prepare-agent</id>
             <goals>
@@ -1454,7 +1454,7 @@ src/
 </plugin>
 ```
 
-**Quality gate (в отдельном profile или в pluginManagement):**
+**Quality gate (in a separate profile or pluginManagement):**
 
 ```xml
 <execution>
@@ -1499,9 +1499,9 @@ src/
     <version>${surefire.version}</version>
     <configuration>
         <!--
-            ${argLine} = JaCoCo пишет сюда свой -javaagent
-            -XX:+EnableDynamicAgentLoading = для Java 21+
-            -javaagent:aspectjweaver = для Allure @Step
+            ${argLine} = JaCoCo writes its -javaagent here
+            -XX:+EnableDynamicAgentLoading = for Java 21+
+            -javaagent:aspectjweaver = for Allure @Step
         -->
         <argLine>${argLine} -XX:+EnableDynamicAgentLoading -Dfile.encoding=${project.build.sourceEncoding} -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"</argLine>
 
@@ -1528,7 +1528,7 @@ src/
 
 ## 24. Failsafe Plugin (Integration Tests)
 
-**Обычно в отдельном profile `integration-tests`:**
+**Usually in a separate profile `integration-tests`:**
 
 ```xml
 <profiles>
@@ -1587,19 +1587,19 @@ src/
 </plugin>
 ```
 
-## 26. Команды запуска
+## 26. Run Commands
 
 ```bash
-# Только unit тесты (быстро, без Docker)
+# Unit tests only (fast, no Docker)
 mvn test
 
-# Integration тесты (profile)
+# Integration tests (profile)
 mvn verify -Pintegration-tests
 
 # Coverage check (profile)
 mvn verify -Pcoverage
 
-# Allure отчёт
+# Allure report
 mvn allure:serve
 ```
 
@@ -1636,14 +1636,14 @@ mvn allure:serve
         <scope>test</scope>
     </dependency>
 
-    <!-- Awaitility для async тестов -->
+    <!-- Awaitility for async tests -->
     <dependency>
         <groupId>org.awaitility</groupId>
         <artifactId>awaitility</artifactId>
         <scope>test</scope>
     </dependency>
 
-    <!-- WireMock для external APIs -->
+    <!-- WireMock for external APIs -->
     <dependency>
         <groupId>org.wiremock</groupId>
         <artifactId>wiremock-standalone</artifactId>
@@ -1659,7 +1659,7 @@ mvn allure:serve
         <scope>test</scope>
     </dependency>
 
-    <!-- AspectJ для Allure @Step -->
+    <!-- AspectJ for Allure @Step -->
     <dependency>
         <groupId>org.aspectj</groupId>
         <artifactId>aspectjweaver</artifactId>
@@ -1673,58 +1673,58 @@ mvn allure:serve
 
 # Quick Checklist
 
-**Структура теста:**
+**Test structure:**
 - [ ] Naming: `method_condition_expectedResult`
-- [ ] Given-When-Then с комментариями
-- [ ] AssertJ assertions (не JUnit)
+- [ ] Given-When-Then with comments
+- [ ] AssertJ assertions (not JUnit)
 - [ ] Allure: @Epic, @Feature, @Story, @Severity, @Step
 
-**Организация:**
-- [ ] @Nested классы для группировки по методам
-- [ ] TestDataBuilders для переиспользования
-- [ ] Разделение пакетов: `unit/` и `integration/`
+**Organization:**
+- [ ] @Nested classes for grouping by method
+- [ ] TestDataBuilders for reuse
+- [ ] Package separation: `unit/` and `integration/`
 
 **Naming conventions:**
-- [ ] `*Test.java` — Unit тесты (Surefire, mvn test)
-- [ ] `*IT.java` — Integration тесты (Failsafe, mvn verify)
+- [ ] `*Test.java` — Unit tests (Surefire, mvn test)
+- [ ] `*IT.java` — Integration tests (Failsafe, mvn verify)
 
-**Интеграционные тесты (основная корзина):**
-- [ ] Для нетипичного кода: Context7 → как реально используют API
-- [ ] Создай оптимальные тестовые сценарии (не просто coverage)
-- [ ] **Сначала позитивные** сценарии (happy path)
-- [ ] **Затем критические негативные** (404, 400, 409, 401/403)
-- [ ] **НЕ пиши бенчмарки** производительности (для JMeter/Gatling)
-- [ ] **Podman** настроен: `DOCKER_HOST`, `TESTCONTAINERS_RYUK_DISABLED=true`
-- [ ] BaseIntegrationTest с Testcontainers
-- [ ] HTTP endpoints через TestRestTemplate
-- [ ] Kafka через реальный брокер (Testcontainers)
-- [ ] JDBC через реальный PostgreSQL (Testcontainers)
-- [ ] External APIs через WireMock
+**Integration tests (core basket):**
+- [ ] For atypical code: Context7 → how the API is really used
+- [ ] Create optimal test scenarios (not just coverage)
+- [ ] **First: positive** scenarios (happy path)
+- [ ] **Then: critical negatives** (404, 400, 409, 401/403)
+- [ ] **DO NOT write benchmarks** (use JMeter/Gatling for that)
+- [ ] **Podman** configured: `DOCKER_HOST`, `TESTCONTAINERS_RYUK_DISABLED=true`
+- [ ] BaseIntegrationTest with Testcontainers
+- [ ] HTTP endpoints via TestRestTemplate
+- [ ] Kafka via real broker (Testcontainers)
+- [ ] JDBC via real PostgreSQL (Testcontainers)
+- [ ] External APIs via WireMock
 
-**Unit тесты (для coverage):**
-- [ ] Edge cases с Mockito
+**Unit tests (for coverage):**
+- [ ] Edge cases with Mockito
 - [ ] Validation branches
 - [ ] Error handling paths
 
-**E2E тесты (если есть frontend):**
+**E2E tests (if frontend is present):**
 - [ ] Selenide + BrowserWebDriverContainer
 - [ ] ARM64: `seleniarm/standalone-chromium` (Apple M1/M2/M3)
 - [ ] x86_64: `selenium/standalone-chrome`
-- [ ] Podman: `host.containers.internal` вместо localhost
+- [ ] Podman: `host.containers.internal` instead of localhost
 - [ ] ChromeOptions: `--no-sandbox`, `--disable-gpu`, `--disable-dev-shm-usage`
-- [ ] Allure-Selenide: скриншоты при падении
-- [ ] Page Objects для переиспользования
+- [ ] Allure-Selenide: screenshots on failure
+- [ ] Page Objects for reuse
 
 **Maven plugins:**
-- [ ] Properties: `<argLine></argLine>` (пустой, JaCoCo заполнит)
-- [ ] JaCoCo: prepare-agent (пишет в argLine)
+- [ ] Properties: `<argLine></argLine>` (empty — JaCoCo will fill it in)
+- [ ] JaCoCo: prepare-agent (writes to argLine)
 - [ ] Surefire/Failsafe argLine: `${argLine} -XX:+EnableDynamicAgentLoading -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"`
-- [ ] Failsafe в profile `integration-tests`
-- [ ] Allure: allure-maven для отчётов
+- [ ] Failsafe in profile `integration-tests`
+- [ ] Allure: allure-maven for reports
 
 **Coverage:**
 - [ ] LINE ≥ 80%
 - [ ] BRANCH ≥ 80%
-- [ ] JaCoCo check на merged.exec
+- [ ] JaCoCo check on merged.exec
 
 <!-- /section:maven -->
