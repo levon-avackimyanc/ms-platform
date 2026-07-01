@@ -17,7 +17,7 @@ Output — the `analytic/` directory in the current branch with three files:
   `.claude/config/increment_template.yaml`.
 - `analytic/review-report.json` — the last verdict from `analytic-reviewer`.
 
-Next step after approve — `/dev_plan`.
+Next step after approve — `/build_scopes` (parallel Dev + Test).
 
 ## Variables
 
@@ -54,7 +54,8 @@ channel.)
    (1–4 questions per call; call multiple times). Ask only about things that
    **cannot be unambiguously derived** from the task; for each question propose
    reasonable answer options. Do not go into architecture/technology (DB,
-   libraries, versions) — that is the domain of `/dev_plan`; if such questions
+   libraries, versions) — that is the domain of Dev planning (inside
+   `/build_scopes`); if such questions
    arise, redirect the customer to the business level.
 3. Once the requirements are gathered — show the customer a **section plan**
    (one annotation phrase per section) and ask a **blocking HITL confirmation**
@@ -160,8 +161,8 @@ Wait for the response.
   - analytic/increment.md
   - analytic/review-report.json
 
-  **Next step**: run `/dev_plan` with this `increment.md` as
-  the primary context.
+  **Next step**: run `/build_scopes` with this `increment.md` as
+  the primary context — it spawns Dev and Test in parallel.
   ```
 - **`reject + <reason>`** — save the reason to
   `analytic/rejection_comment.txt`, return control to `business-analyst`
@@ -191,7 +192,7 @@ Options:
 - Do not modify anything outside `analytic/`. `src/`, `specs/`, `pom.xml` and
   configs are not your domain.
 - Do not run git commands. Committing is the responsibility of `/merge_gate`.
-- Do not invoke `/dev_plan` yourself. That is the user's next step.
+- Do not invoke `/build_scopes` yourself. That is the user's next step.
 
 ## What to do if `business-analyst` fails
 

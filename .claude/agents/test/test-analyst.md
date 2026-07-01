@@ -59,7 +59,9 @@ Header + one block per **applicable** layer:
 - **Patterns:** <naming, structure, AAA/GWT>
 - **Test data:** <builders/factories/fixtures/seed; isolation and cleanup>
 - **Infra:** <Testcontainers Postgres | WireMock | EmbeddedKafka | …, actually available in the repo>
-- **Runner:** <exact command, e.g. mvn verify -P integration>
+- **Runner:** <exact command, isolated from Dev's Surefire units; e.g.
+  mvn verify -Dsurefire.skip=true -P integration, or mvn failsafe:integration-test
+  failsafe:verify — so a red Dev unit does not abort the build before the integration-test phase>
 - **Tags:** <trigger keywords for routing: java testcontainers integration mockmvc>
 
 ## Layer: E2E   (or Load — only applicable ones)

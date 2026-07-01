@@ -95,7 +95,7 @@ authored in this project**, per layer:
 - testing **patterns / conventions** (naming, structure, AAA/GWT);
 - **test-data strategy** (builders / factories / fixtures / fakes / seed data);
 - **infra** per layer (Testcontainers / WireMock / EmbeddedKafka / Playwright / …);
-- **runner command** per layer.
+- **runner command** per layer — **isolated from Dev's unit suite** (see Flow B Exec).
 
 Built from `analytic/increment.md` (intent) + `test-explorer`'s
 `test/test-landscape.md` + project testing refs (and the Dev plan only as an optional
@@ -164,6 +164,13 @@ cross-reference, if present). It is the contract the autotest authors follow.
 **Human-launched** once development is done (the suite was authored in parallel).
 
 - **Exec** — run the authored suite per layer (runner commands from the test model).
+  Each runner **must isolate its layer from Dev's Surefire unit suite** — Test scope is
+  decoupled from Dev. A plain `mvn verify` runs Surefire (`test` phase = Dev units)
+  before Failsafe (`integration-test` phase = this layer), so a red Dev unit aborts the
+  build and the IT layer never runs; catch it out-of-lane. Use `-Dsurefire.skip=true`
+  (or invoke the failsafe goals directly, e.g. `mvn failsafe:integration-test
+  failsafe:verify`) so a service-side bug is caught in-lane by this layer and triaged
+  service-side, while pure Dev unit failures stay Dev's concern.
 - **Analyzer** — on a failure, triage from the **test-run logs** (+ Jacoco coverage
   + static analysis; **prod logs + OBS** when a running/staging env exists —
   greenfield → skipped) and **classify the root cause**:

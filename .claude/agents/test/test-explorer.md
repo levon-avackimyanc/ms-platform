@@ -90,7 +90,7 @@ and the code/config — a tag must be justified by what is actually present.
 
 | Layer | Infra available | Runner command | Configured in |
 |-------|-----------------|----------------|---------------|
-| Integration | Testcontainers Postgres, MockMvc | `mvn verify -P integration` | pom.xml (failsafe) |
+| Integration | Testcontainers Postgres, MockMvc | `mvn verify -Dsurefire.skip=true -P integration` (isolate IT from Dev's Surefire units) | pom.xml (failsafe) |
 | Load | — (not set up) | — | — |
 | ... | ... | ... | ... |
 
