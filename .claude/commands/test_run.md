@@ -25,7 +25,7 @@ delegate triage/fix/bug to sub-agents (they have no Task tools).
 For each live layer, run its declared runner verbatim (`Bash`), capturing output:
 
 ```bash
-<runner command from the layer block>   # e.g. mvn verify -P integration
+<runner command from the layer block>   # e.g. mvn verify -Dsurefire.skip=true -P integration
 ```
 
 Then confirm the tests actually ran (not silently skipped):

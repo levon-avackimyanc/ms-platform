@@ -58,7 +58,9 @@ tools: Read, Write, Edit, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__seren
 - **Patterns:** <naming, structure, AAA/GWT>
 - **Test data:** <builders/factories/fixtures/seed; изоляция и очистка>
 - **Infra:** <Testcontainers Postgres | WireMock | EmbeddedKafka | …, реально доступное в репо>
-- **Runner:** <точная команда, напр. mvn verify -P integration>
+- **Runner:** <точная команда, изолированная от Dev-юнитов (Surefire); напр.
+  mvn verify -Dsurefire.skip=true -P integration, либо mvn failsafe:integration-test
+  failsafe:verify — чтобы красный Dev unit не обрывал сборку до фазы integration-test>
 - **Tags:** <trigger keywords для роутинга: java testcontainers integration mockmvc>
 
 ## Layer: E2E   (или Load — только применимые)

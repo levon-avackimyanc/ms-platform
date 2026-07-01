@@ -154,11 +154,19 @@ Follow this EXACT structure (replace `<...>`):
 - **Infra signature (regex, ≥1 match per file):** `<e.g. @Testcontainers|import org\.testcontainers>`
 - **Happy-path scenarios (≥1 named):**
   - `<ClassName#method | describe>it | path::test_name — one per user-facing case>`
-- **Runner command:** `<exact command, e.g. mvn verify -P integration>`
+- **Runner command:** `<exact command that runs THIS layer in isolation from Dev's
+  Surefire unit suite — e.g. mvn verify -Dsurefire.skip=true -P integration, or
+  mvn failsafe:integration-test failsafe:verify>`
 - **Realism rationale:** `<why this is the most realistic setup this repo can run>`
 
 <!-- add ### E2E Layer / ### Load Layer / ### Sys Layer blocks only if applicable.
      Unit, if mentioned, must be: ### Unit Layer (<stack>) — Status: Skipped — owned by Dev -->
+<!-- Runner isolation (critical): Test scope is DECOUPLED from Dev. In Maven's default
+     lifecycle Surefire (`test` phase = Dev's unit suite) runs BEFORE Failsafe
+     (`integration-test` phase = this layer), so a plain `mvn verify` aborts on a red Dev
+     unit test and this layer's IT NEVER runs. Runner commands MUST skip/bypass the
+     Surefire unit phase (`-Dsurefire.skip=true`, or invoke the failsafe goals directly)
+     so a service-side bug is caught in-lane by this layer, not out-of-lane by Dev units. -->
 
 ## Step by Step Tasks
 
