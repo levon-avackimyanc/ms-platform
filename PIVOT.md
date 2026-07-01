@@ -1,59 +1,59 @@
 # Pivot: Claude Code as backend
 
-**Дата:** 2026-06-05.
-**Статус:** принято, действует.
+**Date:** 2026-06-05.
+**Status:** Accepted, in effect.
 
-## Что менялось
+## What Changed
 
-| Было | Стало |
+| Was | Became |
 |---|---|
-| Своё CLI-приложение `ms-platform` на **Java 21 + Spring Boot 3.5 + Spring Shell + Spring AI + JGit**, оркестрирующее агентов через свой `LlmGateway` поверх DeepSeek / GigaChat / Claude. | **Claude Code как единственный runtime** для агентов и пайплайнов. Вся работа — через стандартные примитивы: **agents, skills, hooks, tools, MCPs, references**. |
-| Контракты: артефакты в git + локальный трейсинг + state-файл инкремента + HITL-gate'ы в CLI. | Контракты прежние, но реализуются стандартными механизмами Claude Code и `.claude/`-конфигом. |
-| Дев-сторона: дублирование части возможностей Claude Code на Java (LLM-провайдеры, retry, fallback, role-routing). | Дублирование убрано. Claude Code сам делает то, что мы пытались переизобрести. |
+| Own CLI application `ms-platform` on **Java 21 + Spring Boot 3.5 + Spring Shell + Spring AI + JGit**, orchestrating agents through its own `LlmGateway` on top of DeepSeek / GigaChat / Claude. | **Claude Code as the sole runtime** for agents and pipelines. All work — through standard primitives: **agents, skills, hooks, tools, MCPs, references**. |
+| Contracts: artifacts in git + local tracing + increment state file + HITL gates in CLI. | Contracts are the same, but implemented via standard Claude Code mechanisms and `.claude/` config. |
+| Dev side: duplicating some Claude Code capabilities in Java (LLM providers, retry, fallback, role-routing). | Duplication removed. Claude Code already does what we were trying to reinvent. |
 
-## Почему
+## Why
 
-1. **YAGNI.** Дублировать функции Claude Code на Spring AI в MVP — расход без отдачи.
-2. **Команда.** Внутри банка идёт дистилляция агентов в skills и refs (по образцу GigaCode/Claude Code). Наш проект встраивается в этот же паттерн.
-3. **Скорость.** Готовая Claude Code-конфигурация апстрима ([`a-simeshin/claude-code-hooks-mastery`](https://github.com/a-simeshin/claude-code-hooks-mastery)) уже закрывает большую часть Dev_scope.
+1. **YAGNI.** Duplicating Claude Code features in Spring AI for MVP — cost without return.
+2. **Team.** Inside the bank, agents are being distilled into skills and refs (modeled after GigaCode/Claude Code). Our project fits into this same pattern.
+3. **Speed.** The ready Claude Code configuration from upstream ([`a-simeshin/claude-code-hooks-mastery`](https://github.com/a-simeshin/claude-code-hooks-mastery)) already covers most of Dev_scope.
 
-## Что удалено
+## What Was Removed
 
 - `pom.xml`
 - `src/`
 - `target/`
-- Все классы `dev.multiagent.ms.*` (Java skeleton: `MsApplication`, `StatusCommand`, `MsProperties`, всё в `llm/`).
-- Зависимости Spring Boot 3.5.14 / Spring Shell 3.4.0 / Spring AI 1.0.0 / JGit 7.3.0 / Lombok.
-- `.gitignore` упрощён — убраны Java/Maven секции.
+- All `dev.multiagent.ms.*` classes (Java skeleton: `MsApplication`, `StatusCommand`, `MsProperties`, everything in `llm/`).
+- Dependencies Spring Boot 3.5.14 / Spring Shell 3.4.0 / Spring AI 1.0.0 / JGit 7.3.0 / Lombok.
+- `.gitignore` simplified — Java/Maven sections removed.
 
-## Что осталось актуальным из дизайна
+## What Remains Relevant from the Design
 
-Из ранее написанных документов сохраняют смысл:
-- **Структура трёх scope-ов** (Analytic / Dev / Test) — концептуальная модель не меняется.
-- **Артефакты** (`increment.md`, `tech_spec.md`, `Plan.md`, `bug.md`) и контракты между фазами.
-- **HITL-точки** (Analytic gate, Dev merge-gate, Test reject-loop).
-- **Иерархия ролей** (system-analyst, explorer, planner, team-lead, dev/auto-tester, reviewer, analyzer, business-analyst) — переезжает в `.claude/agents/`.
-- **Tags registry** — переезжает в `.claude/refs/` (плоская структура с тремя полями уже соответствует тому, как живут refs у Claude Code).
+From previously written documents the following remain meaningful:
+- **Three-scope structure** (Analytic / Dev / Test) — the conceptual model doesn't change.
+- **Artifacts** (`increment.md`, `tech_spec.md`, `Plan.md`, `bug.md`) and inter-phase contracts.
+- **HITL checkpoints** (Analytic gate, Dev merge-gate, Test reject-loop).
+- **Role hierarchy** (system-analyst, explorer, planner, team-lead, dev/auto-tester, reviewer, analyzer, business-analyst) — moves to `.claude/agents/`.
+- **Tags registry** — moves to `.claude/refs/` (flat structure with three fields already matches how refs live in Claude Code).
 
-## Что устарело и требует пересборки
+## What Is Outdated and Needs Rebuilding
 
-- Главы про Spring AI / Spring Shell / JGit / LLM Gateway / `application.yml` — выкидываем целиком.
-- IMPLEMENTATION_ROADMAP под Java workstreams (A/B/C) — устарел; нужен новый roadmap под Claude Code (где работаем со skills/agents/hooks/commands).
-- YAML-спеки агентов в AGENTS_SPECIFICATION — частично переиспользуем (роли, скиллы, входы/выходы остаются), но формат будет ближе к markdown-формату агентов Claude Code (см. `.claude/agents/*.md`).
+- Chapters on Spring AI / Spring Shell / JGit / LLM Gateway / `application.yml` — discarded entirely.
+- IMPLEMENTATION_ROADMAP under Java workstreams (A/B/C) — outdated; a new roadmap is needed for Claude Code (where we work with skills/agents/hooks/commands).
+- YAML agent specs in AGENTS_SPECIFICATION — partially reusable (roles, skills, inputs/outputs remain), but the format will be closer to the markdown format of Claude Code agents (see `.claude/agents/*.md`).
 
-## Что дальше
+## What's Next
 
-1. Изучить, что уже даёт апстрим в `.claude/`:
-   - какие агенты есть (`builder`, `plan-reviewer`, `validator`, `context-router`, `meta-agent`);
-   - какие slash-команды есть (`/plan_w_team`, `/smart_build`);
-   - какие хуки и валидаторы (Java/Python/TS);
-   - какие refs.
-2. Сопоставить с нашими scope-ами (Analytic / Dev / Test): что закрывается as-is, что надо добавлять.
-3. Добавлять новые `.claude/agents/`, `.claude/commands/`, `.claude/refs/`, `.claude/hooks/` под Analytic_scope и Test_scope.
-4. Когда понадобится оркестрация фаз и параллельных worktree'ев (когда дойдём до dev-workers в Dev_scope) — пересмотрим, нужен ли тонкий внешний CLI-wrapper.
+1. Study what the upstream already provides in `.claude/`:
+   - which agents exist (`builder`, `plan-reviewer`, `validator`, `context-router`, `meta-agent`);
+   - which slash-commands exist (`/plan_w_team`, `/smart_build`);
+   - which hooks and validators (Java/Python/TS);
+   - which refs.
+2. Map against our scopes (Analytic / Dev / Test): what's covered as-is, what needs to be added.
+3. Add new `.claude/agents/`, `.claude/commands/`, `.claude/refs/`, `.claude/hooks/` for Analytic_scope and Test_scope.
+4. When phase orchestration and parallel worktrees are needed (when we reach dev-workers in Dev_scope) — revisit whether a thin external CLI-wrapper is required.
 
-## Ссылки
+## Links
 
-- Апстрим: [`a-simeshin/claude-code-hooks-mastery`](https://github.com/a-simeshin/claude-code-hooks-mastery) (форк `disler/claude-code-hooks-mastery`).
-- Текущий репо платформы: [`levon-avackimyanc/ms-platform`](https://github.com/levon-avackimyanc/ms-platform).
-- Старая Spring-разработка: [`levon-avackimyanc/multiagent-system`](https://github.com/levon-avackimyanc/multiagent-system) — заархивировать после подтверждения, что всё нужное унесли.
+- Upstream: [`a-simeshin/claude-code-hooks-mastery`](https://github.com/a-simeshin/claude-code-hooks-mastery) (fork of `disler/claude-code-hooks-mastery`).
+- Current platform repo: [`levon-avackimyanc/ms-platform`](https://github.com/levon-avackimyanc/ms-platform).
+- Old Spring development: [`levon-avackimyanc/multiagent-system`](https://github.com/levon-avackimyanc/multiagent-system) — archive after confirming everything needed has been migrated.

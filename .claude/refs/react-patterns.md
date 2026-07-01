@@ -4,23 +4,23 @@
 
 ## 1. Functional Components Only
 
-Только функциональные компоненты. Классовые компоненты запрещены.
+Functional components only. Class components are prohibited.
 
 ```tsx
-// BAD: Классовый компонент — устаревший подход
+// BAD: Class component — outdated approach
 class UserCard extends React.Component<UserCardProps> {
   render() {
     return <div>{this.props.name}</div>;
   }
 }
 
-// GOOD: Функциональный компонент с явной типизацией
+// GOOD: Functional component with explicit typing
 interface UserCardProps {
-  /** Имя пользователя для отображения. */
+  /** Username to display. */
   name: string;
-  /** Email для ссылки mailto. */
+  /** Email for mailto link. */
   email: string;
-  /** Callback при клике на карточку. */
+  /** Callback on card click. */
   onClick?: (userId: string) => void;
 }
 
@@ -34,17 +34,17 @@ function UserCard({ name, email, onClick }: UserCardProps) {
 }
 ```
 
-**Правила:**
-- Всегда `function` declaration (не `const Component = () => {}` для компонентов верхнего уровня)
-- Props интерфейс объявляется отдельно, НАД компонентом
-- `export` на самом компоненте или внизу файла, но единообразно в проекте
+**Rules:**
+- Always `function` declaration (not `const Component = () => {}` for top-level components)
+- Props interface declared separately, ABOVE the component
+- `export` on the component itself or at the bottom of the file, but consistently throughout the project
 
 ## 2. Custom Hooks Extraction
 
-Логика выносится в кастомные хуки. Компонент — только рендер.
+Logic goes into custom hooks. Component — render only.
 
 ```tsx
-// BAD: Логика размазана по компоненту
+// BAD: Logic scattered across the component
 function UserProfile({ userId }: { userId: string }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +77,7 @@ function UserProfile({ userId }: { userId: string }) {
   return <div>{user.name}</div>;
 }
 
-// GOOD: Хук отдельно, компонент отдельно
+// GOOD: Hook separate, component separate
 function useUser(userId: string) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,30 +117,30 @@ function UserProfile({ userId }: { userId: string }) {
 }
 ```
 
-**Правило:** Если в компоненте больше одного `useState` + `useEffect` — выноси в хук.
+**Rule:** If a component has more than one `useState` + `useEffect` — extract into a hook.
 
 ## 3. Props Typing with TypeScript Interfaces
 
-Все пропсы типизируются через `interface`. Никаких `any`, `object`, inline типов.
+All props are typed via `interface`. No `any`, `object`, or inline types.
 
 ```tsx
-// BAD: Inline типы, any, нет документации
+// BAD: Inline types, any, no documentation
 function OrderList({ orders, onSelect }: { orders: any[]; onSelect: any }) {
   return <ul>{orders.map((o) => <li key={o.id}>{o.name}</li>)}</ul>;
 }
 
-// BAD: React.FC — скрывает children, мешает дженерикам
+// BAD: React.FC — hides children, interferes with generics
 const OrderList: React.FC<{ orders: Order[] }> = ({ orders }) => {
   return <ul>{orders.map((o) => <li key={o.id}>{o.name}</li>)}</ul>;
 };
 
-// GOOD: Явный interface, JSDoc комментарии
+// GOOD: Explicit interface, JSDoc comments
 interface OrderListProps {
-  /** Список заказов для отображения. */
+  /** List of orders to display. */
   orders: Order[];
-  /** Callback при выборе заказа. */
+  /** Callback on order selection. */
   onSelect: (orderId: string) => void;
-  /** CSS класс для контейнера (опционально). */
+  /** CSS class for the container (optional). */
   className?: string;
 }
 
@@ -157,17 +157,17 @@ function OrderList({ orders, onSelect, className }: OrderListProps) {
 }
 ```
 
-**Правила:**
-- Не использовать `React.FC` — мешает дженерикам, устаревшая практика
-- Children пробрасывать явно: `children: React.ReactNode`
-- Event handlers типизировать: `onClick: (id: string) => void`, не `Function`
+**Rules:**
+- Do not use `React.FC` — interferes with generics, outdated practice
+- Pass children explicitly: `children: React.ReactNode`
+- Type event handlers: `onClick: (id: string) => void`, not `Function`
 
 ## 4. useState vs useReducer
 
-`useState` для простых значений. `useReducer` для связанных состояний.
+`useState` for simple values. `useReducer` for related state.
 
 ```tsx
-// BAD: Множество связанных useState — легко рассинхронизировать
+// BAD: Multiple related useState — easy to desynchronize
 function RegistrationForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -180,11 +180,11 @@ function RegistrationForm() {
     setIsSubmitting(true);
     setErrors({});
     setIsSuccess(false);
-    // Легко забыть сбросить одно из состояний...
+    // Easy to forget to reset one of the states...
   }
 }
 
-// GOOD: useReducer для связанных состояний формы
+// GOOD: useReducer for related form states
 interface FormState {
   name: string;
   email: string;
@@ -225,32 +225,32 @@ function formReducer(state: FormState, action: FormAction): FormState {
 
 function RegistrationForm() {
   const [state, dispatch] = useReducer(formReducer, initialState);
-  // Все переходы состояний атомарны и предсказуемы
+  // All state transitions are atomic and predictable
 }
 ```
 
-**Когда какой:**
-- `useState`: булевы флаги, строки, отдельные числа
-- `useReducer`: формы, wizards, корзины, любые связанные состояния
+**When to use which:**
+- `useState`: boolean flags, strings, individual numbers
+- `useReducer`: forms, wizards, carts, any related state
 
 ## 5. useEffect Cleanup and Dependencies
 
-Всегда cleanup. Зависимости — явные и минимальные.
+Always cleanup. Dependencies — explicit and minimal.
 
 ```tsx
-// BAD: Нет cleanup — утечка памяти, race condition
+// BAD: No cleanup — memory leak, race condition
 useEffect(() => {
   fetch(`/api/users/${userId}`)
     .then((res) => res.json())
     .then((data) => setUser(data));
 }, [userId]);
 
-// BAD: Объект в зависимостях — бесконечный цикл
+// BAD: Object in dependencies — infinite loop
 useEffect(() => {
   fetchData(filters);
-}, [filters]); // filters = { page: 1, search: '' } — новый объект каждый рендер!
+}, [filters]); // filters = { page: 1, search: '' } — new object on every render!
 
-// GOOD: Cleanup для отмены запроса и предотвращения race condition
+// GOOD: Cleanup to cancel the request and prevent race condition
 useEffect(() => {
   let ignore = false;
   const controller = new AbortController();
@@ -279,23 +279,23 @@ useEffect(() => {
   };
 }, [userId]);
 
-// GOOD: Примитивные зависимости вместо объектов
+// GOOD: Primitive dependencies instead of objects
 useEffect(() => {
   fetchData({ page, search });
-}, [page, search]); // Примитивы — стабильные зависимости
+}, [page, search]); // Primitives — stable dependencies
 ```
 
-**Правила:**
-- Каждый `useEffect` ОБЯЗАН иметь cleanup (или явный комментарий почему не нужен)
-- В зависимостях только примитивы, стабильные refs, или мемоизированные значения
-- Пустой массив `[]` = выполнить один раз при маунте
+**Rules:**
+- Every `useEffect` MUST have cleanup (or an explicit comment explaining why it's not needed)
+- Dependencies: only primitives, stable refs, or memoized values
+- Empty array `[]` = run once on mount
 
 ## 6. useMemo/useCallback — Only When Needed
 
-НЕ оборачивай все подряд. Мемоизация нужна в конкретных случаях.
+DO NOT wrap everything. Memoization is needed in specific cases only.
 
 ```tsx
-// BAD: Бессмысленная мемоизация — overhead без пользы
+// BAD: Pointless memoization — overhead without benefit
 function UserList({ users }: { users: User[] }) {
   const sortedUsers = useMemo(() => users.sort(byName), [users]);
   const handleClick = useCallback(() => {
@@ -305,9 +305,9 @@ function UserList({ users }: { users: User[] }) {
   return <div onClick={handleClick}>{sortedUsers.map(renderUser)}</div>;
 }
 
-// GOOD: useMemo только для тяжелых вычислений
+// GOOD: useMemo only for heavy computations
 function DataGrid({ rows, filters }: DataGridProps) {
-  // Тяжелая фильтрация + сортировка тысяч строк — мемоизация оправдана
+  // Heavy filtering + sorting of thousands of rows — memoization is justified
   const processedRows = useMemo(
     () => rows.filter(matchesFilters(filters)).sort(bySortKey),
     [rows, filters]
@@ -316,11 +316,11 @@ function DataGrid({ rows, filters }: DataGridProps) {
   return <Table rows={processedRows} />;
 }
 
-// GOOD: useCallback при передаче в мемоизированный дочерний компонент
+// GOOD: useCallback when passing to a memoized child component
 function ParentComponent() {
   const [count, setCount] = useState(0);
 
-  // Без useCallback ExpensiveChild будет ре-рендериться при каждом изменении count
+  // Without useCallback, ExpensiveChild will re-render on every count change
   const handleSubmit = useCallback((data: FormData) => {
     api.submit(data);
   }, []);
@@ -338,22 +338,22 @@ const ExpensiveChild = memo(function ExpensiveChild({
 }: {
   onSubmit: (data: FormData) => void;
 }) {
-  // Тяжелый рендер — memo + useCallback на пропсах оправданы
+  // Heavy render — memo + useCallback on props are justified
   return <HeavyForm onSubmit={onSubmit} />;
 });
 ```
 
-**Когда мемоизировать:**
-- `useMemo`: фильтрация/сортировка больших массивов, тяжелые вычисления
-- `useCallback`: callback передается в `memo()` компонент, или в зависимости `useEffect`
-- **НЕ нужно:** простые вычисления, обработчики прямо на JSX элементах
+**When to memoize:**
+- `useMemo`: filtering/sorting large arrays, expensive computations
+- `useCallback`: callback passed to a `memo()` component, or as a `useEffect` dependency
+- **NOT needed:** simple computations, handlers directly on JSX elements
 
 ## 7. Component Composition over Prop Drilling
 
-Композиция вместо прокидывания пропсов через 3+ уровня.
+Composition over prop drilling through 3+ levels.
 
 ```tsx
-// BAD: Prop drilling — theme прокидывается через 3 компонента
+// BAD: Prop drilling — theme passed through 3 components
 function App() {
   const [theme, setTheme] = useState<Theme>("light");
   return <Layout theme={theme} setTheme={setTheme} />;
@@ -365,7 +365,7 @@ function Header({ theme, setTheme }: HeaderProps) {
   return <ThemeToggle theme={theme} setTheme={setTheme} />;
 }
 
-// GOOD: Context для глобального состояния (тема, авторизация, locale)
+// GOOD: Context for global state (theme, auth, locale)
 interface ThemeContextValue {
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -387,7 +387,7 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-// Компонент берет данные из контекста, без prop drilling
+// Component gets data from context, no prop drilling
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   return (
@@ -397,7 +397,7 @@ function ThemeToggle() {
   );
 }
 
-// GOOD: Composition pattern — передача children вместо prop drilling
+// GOOD: Composition pattern — passing children instead of prop drilling
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="layout">
@@ -416,32 +416,32 @@ function App() {
 }
 ```
 
-**Правила:**
-- Prop drilling через 2+ промежуточных компонента = рефактори
-- Context для: темы, auth, locale, feature flags
-- `children` pattern для layout компонентов
+**Rules:**
+- Prop drilling through 2+ intermediate components = refactor
+- Context for: theme, auth, locale, feature flags
+- `children` pattern for layout components
 
 ## 8. Error Boundaries with Fallback UI
 
-Каждая крупная секция UI обернута в Error Boundary.
+Every major UI section is wrapped in an Error Boundary.
 
 ```tsx
-// BAD: Одна ошибка роняет все приложение
+// BAD: One error crashes the entire application
 function App() {
   return (
     <div>
       <Header />
-      <Dashboard />  {/* Ошибка здесь сломает весь App */}
+      <Dashboard />  {/* Error here will break the entire App */}
       <Footer />
     </div>
   );
 }
 
-// GOOD: Error boundary изолирует ошибки, класс — единственный допустимый случай
+// GOOD: Error boundary isolates errors, class — the only acceptable case
 interface ErrorBoundaryProps {
-  /** Fallback UI при ошибке. */
+  /** Fallback UI on error. */
   fallback: React.ReactNode;
-  /** Вложенные компоненты. */
+  /** Nested components. */
   children: React.ReactNode;
 }
 
@@ -469,7 +469,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-// Использование: каждая секция изолирована
+// Usage: each section is isolated
 function App() {
   return (
     <div>
@@ -486,14 +486,14 @@ function App() {
 }
 ```
 
-**Правило:** Error Boundary — единственный случай, когда допускается классовый компонент (React пока не имеет хукового аналога для `getDerivedStateFromError`).
+**Rule:** Error Boundary — the only case where a class component is acceptable (React does not yet have a hook equivalent for `getDerivedStateFromError`).
 
 ## 9. Suspense for Async Operations
 
-`Suspense` + `React.lazy` для code splitting. `Suspense` + data fetching через фреймворк.
+`Suspense` + `React.lazy` for code splitting. `Suspense` + data fetching via framework.
 
 ```tsx
-// BAD: Ручной loading стейт для каждого компонента
+// BAD: Manual loading state for each component
 function App() {
   const [DashboardModule, setDashboard] = useState<React.ComponentType | null>(null);
 
@@ -505,7 +505,7 @@ function App() {
   return <DashboardModule />;
 }
 
-// GOOD: React.lazy + Suspense для code splitting
+// GOOD: React.lazy + Suspense for code splitting
 const Dashboard = lazy(() => import("./Dashboard"));
 const Settings = lazy(() => import("./Settings"));
 const Analytics = lazy(() => import("./Analytics"));
@@ -522,7 +522,7 @@ function App() {
   );
 }
 
-// GOOD: Вложенный Suspense для гранулярного loading
+// GOOD: Nested Suspense for granular loading
 function DashboardPage() {
   return (
     <div className="dashboard">
@@ -538,39 +538,39 @@ function DashboardPage() {
 }
 ```
 
-**Правила:**
-- `React.lazy()` для всех route-level компонентов
-- `Suspense` с осмысленным fallback (skeleton, не просто spinner)
-- Вложенный `Suspense` для параллельной загрузки секций
+**Rules:**
+- `React.lazy()` for all route-level components
+- `Suspense` with a meaningful fallback (skeleton, not just a spinner)
+- Nested `Suspense` for parallel section loading
 
 ## 10. Key Prop and List Rendering
 
-Ключи должны быть стабильными и уникальными. Никаких `index` для динамических списков.
+Keys must be stable and unique. No `index` for dynamic lists.
 
 ```tsx
-// BAD: Index как ключ — баги при сортировке, удалении, вставке
+// BAD: Index as key — bugs on sorting, deletion, insertion
 function TodoList({ todos }: { todos: Todo[] }) {
   return (
     <ul>
       {todos.map((todo, index) => (
-        <li key={index}>{todo.text}</li>  // При удалении элемента React перепутает состояния
+        <li key={index}>{todo.text}</li>  // When deleting an element, React will confuse states
       ))}
     </ul>
   );
 }
 
-// BAD: Нестабильный ключ — ре-маунт каждый рендер
+// BAD: Unstable key — remount on every render
 function TodoList({ todos }: { todos: Todo[] }) {
   return (
     <ul>
       {todos.map((todo) => (
-        <li key={Math.random()}>{todo.text}</li>  // Новый ключ = новый DOM узел каждый раз
+        <li key={Math.random()}>{todo.text}</li>  // New key = new DOM node every time
       ))}
     </ul>
   );
 }
 
-// GOOD: Стабильный уникальный ID из данных
+// GOOD: Stable unique ID from data
 function TodoList({ todos }: { todos: Todo[] }) {
   if (todos.length === 0) {
     return <EmptyState message="No todos yet" />;
@@ -587,7 +587,7 @@ function TodoList({ todos }: { todos: Todo[] }) {
   );
 }
 
-// OK: Index допустим ТОЛЬКО для статических списков (меню, навигация)
+// OK: Index is acceptable ONLY for static lists (menus, navigation)
 const NAV_ITEMS = ["Home", "About", "Contact"] as const;
 
 function NavMenu() {
@@ -601,10 +601,10 @@ function NavMenu() {
 }
 ```
 
-**Правила:**
-- `key` = уникальный ID из данных (`todo.id`, `user.uuid`)
-- `index` как ключ допустим ТОЛЬКО если список статичный и не сортируется/фильтруется
-- Всегда проверять пустой список — рендерить EmptyState
+**Rules:**
+- `key` = unique ID from data (`todo.id`, `user.uuid`)
+- `index` as key is acceptable ONLY if the list is static and is not sorted/filtered
+- Always handle empty list — render EmptyState
 
 <!-- /section:core -->
 
@@ -614,11 +614,11 @@ function NavMenu() {
 
 ## 11. Server vs Client Components
 
-По умолчанию все компоненты серверные. `'use client'` только когда нужна интерактивность.
+All components are server components by default. `'use client'` only when interactivity is needed.
 
 ```tsx
-// BAD: 'use client' на каждом компоненте — теряется смысл SSR
-'use client';  // Не нужен! Нет интерактивности
+// BAD: 'use client' on every component — the point of SSR is lost
+'use client';  // Not needed! No interactivity
 
 import { db } from '@/lib/db';
 
@@ -632,11 +632,11 @@ export default function UserList() {
   return <ul>{users.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
 }
 
-// GOOD: Server Component — прямой доступ к данным, нет useState/useEffect
+// GOOD: Server Component — direct data access, no useState/useEffect
 import { db } from '@/lib/db';
 
 export default async function UserList() {
-  // Прямой запрос к БД — никаких API routes, никаких useEffect
+  // Direct DB query — no API routes, no useEffect
   const users = await db.user.findMany({ orderBy: { name: 'asc' } });
 
   return (
@@ -648,13 +648,13 @@ export default async function UserList() {
   );
 }
 
-// GOOD: 'use client' только для интерактивного компонента
+// GOOD: 'use client' only for interactive component
 'use client';
 
 import { useState } from 'react';
 
 interface SearchInputProps {
-  /** Callback при изменении поискового запроса. */
+  /** Callback on search query change. */
   onSearch: (query: string) => void;
 }
 
@@ -670,33 +670,33 @@ export function SearchInput({ onSearch }: SearchInputProps) {
 }
 ```
 
-**Когда `'use client'`:**
-- `useState`, `useReducer`, `useEffect` и другие хуки
+**When `'use client'`:**
+- `useState`, `useReducer`, `useEffect` and other hooks
 - Event handlers (`onClick`, `onChange`)
 - Browser APIs (`localStorage`, `window`)
-- Сторонние библиотеки без серверной поддержки
+- Third-party libraries without server support
 
-**Когда Server Component (по умолчанию):**
-- Получение данных (fetch, DB запросы)
-- Доступ к серверным ресурсам (файловая система, env)
-- Рендер статического контента
+**When Server Component (by default):**
+- Data fetching (fetch, DB queries)
+- Access to server resources (file system, env)
+- Rendering static content
 
 ## 12. App Router File Conventions
 
-Каждый файл в `app/` имеет определенное назначение. Не путать.
+Each file in `app/` has a specific purpose. Do not mix them up.
 
 ```
 app/
-  layout.tsx      — Общий layout (оборачивает children), сохраняется между навигациями
-  page.tsx        — UI для данного route сегмента
-  loading.tsx     — Suspense fallback (показывается при загрузке page)
-  error.tsx       — Error boundary для route сегмента (ОБЯЗАН быть 'use client')
-  not-found.tsx   — UI для 404 (вызывается через notFound())
-  template.tsx    — Как layout, но ре-маунтится при навигации (редко нужен)
+  layout.tsx      — Shared layout (wraps children), persists across navigations
+  page.tsx        — UI for this route segment
+  loading.tsx     — Suspense fallback (shown while page is loading)
+  error.tsx       — Error boundary for route segment (MUST be 'use client')
+  not-found.tsx   — UI for 404 (invoked via notFound())
+  template.tsx    — Like layout but re-mounts on navigation (rarely needed)
 ```
 
 ```tsx
-// app/layout.tsx — Root layout, ОБЯЗАТЕЛЕН
+// app/layout.tsx — Root layout, REQUIRED
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -706,7 +706,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="en">
       <body>
         <Header />
         <main>{children}</main>
@@ -716,18 +716,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 
-// app/dashboard/page.tsx — Server Component по умолчанию
+// app/dashboard/page.tsx — Server Component by default
 export default async function DashboardPage() {
   const stats = await fetchDashboardStats();
   return <DashboardView stats={stats} />;
 }
 
-// app/dashboard/loading.tsx — Показывается пока page загружается
+// app/dashboard/loading.tsx — Shown while page is loading
 export default function DashboardLoading() {
   return <DashboardSkeleton />;
 }
 
-// app/dashboard/error.tsx — ОБЯЗАН быть 'use client'
+// app/dashboard/error.tsx — MUST be 'use client'
 'use client';
 
 interface ErrorPageProps {
@@ -748,10 +748,10 @@ export default function DashboardError({ error, reset }: ErrorPageProps) {
 
 ## 13. Server Actions for Mutations
 
-Server Actions для изменения данных. Не для чтения.
+Server Actions for data mutations. Not for reads.
 
 ```tsx
-// BAD: API route + fetch для простого создания записи
+// BAD: API route + fetch for simple record creation
 // app/api/posts/route.ts
 export async function POST(request: Request) {
   const data = await request.json();
@@ -767,7 +767,7 @@ function CreatePost() {
   }
 }
 
-// GOOD: Server Action — прямой вызов серверной функции
+// GOOD: Server Action — direct call to a server function
 // app/posts/actions.ts
 'use server';
 
@@ -791,7 +791,7 @@ export async function createPost(formData: FormData) {
   redirect('/posts');
 }
 
-// app/posts/new/page.tsx — Server Component с формой
+// app/posts/new/page.tsx — Server Component with form
 import { createPost } from '../actions';
 
 export default function NewPostPage() {
@@ -804,7 +804,7 @@ export default function NewPostPage() {
   );
 }
 
-// GOOD: Server Action в клиентском компоненте с useActionState
+// GOOD: Server Action in a client component with useActionState
 'use client';
 
 import { useActionState } from 'react';
@@ -828,20 +828,20 @@ function CreatePostForm() {
 
 ## 14. Data Fetching in Server Components
 
-В Server Components данные получаем напрямую. Никаких useEffect!
+In Server Components, fetch data directly. No useEffect!
 
 ```tsx
-// BAD: useEffect в Server Component — не работает
+// BAD: useEffect in Server Component — does not work
 export default async function PostsPage() {
-  const [posts, setPosts] = useState([]);  // Ошибка! Хуки в Server Component нельзя
-  useEffect(() => { fetch(...)}, []);       // Ошибка!
+  const [posts, setPosts] = useState([]);  // Error! Hooks cannot be used in Server Component
+  useEffect(() => { fetch(...)}, []);       // Error!
 }
 
-// GOOD: Прямой async/await в Server Component
+// GOOD: Direct async/await in Server Component
 import { db } from '@/lib/db';
 
 export default async function PostsPage() {
-  // Прямой запрос к БД — нет API route, нет useEffect
+  // Direct DB query — no API route, no useEffect
   const posts = await db.post.findMany({
     orderBy: { createdAt: 'desc' },
     take: 20,
@@ -857,19 +857,19 @@ export default async function PostsPage() {
   );
 }
 
-// GOOD: Fetch с контролем кеширования
+// GOOD: Fetch with cache control
 export default async function StatsPage() {
-  // Статические данные — кешируются навсегда (по умолчанию)
+  // Static data — cached forever (by default)
   const config = await fetch('https://api.example.com/config', {
     cache: 'force-cache',
   }).then((r) => r.json());
 
-  // Динамические данные — не кешируются
+  // Dynamic data — not cached
   const stats = await fetch('https://api.example.com/stats', {
     cache: 'no-store',
   }).then((r) => r.json());
 
-  // Данные с ревалидацией каждые 60 секунд
+  // Data with revalidation every 60 seconds
   const posts = await fetch('https://api.example.com/posts', {
     next: { revalidate: 60 },
   }).then((r) => r.json());
@@ -880,10 +880,10 @@ export default async function StatsPage() {
 
 ## 15. Metadata API for SEO
 
-Метаданные через `export const metadata` или `generateMetadata`.
+Metadata via `export const metadata` or `generateMetadata`.
 
 ```tsx
-// BAD: <Head> из next/head — это Pages Router, не App Router
+// BAD: <Head> from next/head — this is Pages Router, not App Router
 import Head from 'next/head';
 
 export default function Page() {
@@ -895,7 +895,7 @@ export default function Page() {
   );
 }
 
-// GOOD: Статические метаданные
+// GOOD: Static metadata
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -912,7 +912,7 @@ export default function DashboardPage() {
   return <Dashboard />;
 }
 
-// GOOD: Динамические метаданные (зависят от params)
+// GOOD: Dynamic metadata (depends on params)
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -946,7 +946,7 @@ export default async function PostPage({ params }: PageProps) {
 
 ## 16. Route Handlers (API Routes)
 
-Route handlers для внешних API, webhooks. Для внутренних мутаций — Server Actions.
+Route handlers for external APIs and webhooks. For internal mutations — Server Actions.
 
 ```tsx
 // app/api/webhooks/stripe/route.ts — Webhook endpoint
@@ -971,7 +971,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// app/api/users/[id]/route.ts — REST endpoint для внешних клиентов
+// app/api/users/[id]/route.ts — REST endpoint for external clients
 import { NextRequest, NextResponse } from 'next/server';
 
 interface RouteParams {
@@ -992,17 +992,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 ## 17. Middleware Patterns
 
-Middleware для auth, redirects, i18n. Выполняется ДО рендеринга.
+Middleware for auth, redirects, i18n. Runs BEFORE rendering.
 
 ```tsx
-// middleware.ts — в корне проекта (рядом с app/)
+// middleware.ts — at the project root (next to app/)
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Пропускаем статику и API
+  // Skip static files and API
   if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
     return NextResponse.next();
   }
@@ -1024,10 +1024,10 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// matcher — указывает на каких путях запускать middleware
+// matcher — specifies which paths to run middleware on
 export const config = {
   matcher: [
-    // Все пути кроме статики
+    // All paths except static files
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
@@ -1035,18 +1035,18 @@ export const config = {
 
 ## 18. Caching and Revalidation
 
-`revalidatePath` и `revalidateTag` для инвалидации кеша после мутаций.
+`revalidatePath` and `revalidateTag` for cache invalidation after mutations.
 
 ```tsx
-// BAD: Нет ревалидации — данные устаревают
+// BAD: No revalidation — data becomes stale
 'use server';
 
 export async function updatePost(id: string, data: PostData) {
   await db.post.update({ where: { id }, data });
-  // Страница показывает старые данные!
+  // The page shows stale data!
 }
 
-// GOOD: revalidatePath — инвалидирует кеш для конкретного пути
+// GOOD: revalidatePath — invalidates cache for a specific path
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -1054,14 +1054,14 @@ import { revalidatePath } from 'next/cache';
 export async function updatePost(id: string, data: PostData) {
   await db.post.update({ where: { id }, data });
 
-  revalidatePath('/posts');           // Инвалидирует страницу списка
-  revalidatePath(`/posts/${id}`);     // Инвалидирует страницу поста
+  revalidatePath('/posts');           // Invalidates the list page
+  revalidatePath(`/posts/${id}`);     // Invalidates the post page
 }
 
-// GOOD: revalidateTag — инвалидирует по тегу (гибче)
+// GOOD: revalidateTag — invalidates by tag (more flexible)
 import { revalidateTag } from 'next/cache';
 
-// При получении данных — присваиваем тег
+// When fetching data — assign a tag
 async function getPosts() {
   const res = await fetch('https://api.example.com/posts', {
     next: { tags: ['posts'] },
@@ -1076,21 +1076,21 @@ async function getPost(id: string) {
   return res.json();
 }
 
-// При мутации — инвалидируем по тегу
+// On mutation — invalidate by tag
 export async function updatePost(id: string, data: PostData) {
   await db.post.update({ where: { id }, data });
-  revalidateTag(`post-${id}`);  // Только конкретный пост
+  revalidateTag(`post-${id}`);  // Only the specific post
 }
 
 export async function deletePost(id: string) {
   await db.post.delete({ where: { id } });
-  revalidateTag('posts');  // Весь список постов
+  revalidateTag('posts');  // The entire post list
 }
 ```
 
 ## 19. Dynamic Routes and generateStaticParams
 
-Динамические сегменты `[slug]` и pre-rendering через `generateStaticParams`.
+Dynamic segments `[slug]` and pre-rendering via `generateStaticParams`.
 
 ```tsx
 // app/posts/[slug]/page.tsx
@@ -1101,7 +1101,7 @@ interface PostPageProps {
   params: Promise<{ slug: string }>;
 }
 
-// Статическая генерация для известных slugs
+// Static generation for known slugs
 export async function generateStaticParams() {
   const posts = await db.post.findMany({ select: { slug: true } });
   return posts.map((post) => ({ slug: post.slug }));
@@ -1112,7 +1112,7 @@ export default async function PostPage({ params }: PostPageProps) {
   const post = await db.post.findUnique({ where: { slug } });
 
   if (!post) {
-    notFound(); // Вернет 404 через app/posts/[slug]/not-found.tsx
+    notFound(); // Will return 404 via app/posts/[slug]/not-found.tsx
   }
 
   return (
@@ -1136,21 +1136,21 @@ export default function PostNotFound() {
 
 ## 20. Parallel Routes and Intercepting Routes
 
-Параллельные маршруты для сложных layout. Intercepting routes для модалок.
+Parallel routes for complex layouts. Intercepting routes for modals.
 
 ```
 app/
-  @analytics/       — Параллельный slot (рендерится одновременно с page)
+  @analytics/       — Parallel slot (rendered simultaneously with page)
     page.tsx
     loading.tsx
-  @sidebar/          — Второй параллельный slot
+  @sidebar/          — Second parallel slot
     page.tsx
-  layout.tsx         — Получает slots как props
+  layout.tsx         — Receives slots as props
   page.tsx
 ```
 
 ```tsx
-// app/layout.tsx — Параллельные routes как props
+// app/layout.tsx — Parallel routes as props
 interface DashboardLayoutProps {
   children: React.ReactNode;
   analytics: React.ReactNode;  // @analytics slot
@@ -1171,10 +1171,10 @@ export default function DashboardLayout({
   );
 }
 
-// Intercepting routes для модалок:
-// app/posts/(..)posts/[id]/page.tsx — перехватывает /posts/[id] из feed
-// Показывает пост в модалке при навигации из списка,
-// но полную страницу при прямом заходе по URL
+// Intercepting routes for modals:
+// app/posts/(..)posts/[id]/page.tsx — intercepts /posts/[id] from feed
+// Shows the post in a modal when navigating from the list,
+// but shows the full page on direct URL access
 ```
 
 <!-- /section:nextjs -->
@@ -1185,10 +1185,10 @@ export default function DashboardLayout({
 
 ## 21. React Router v7 Setup
 
-`createBrowserRouter` + `RouterProvider`. Объектная конфигурация маршрутов.
+`createBrowserRouter` + `RouterProvider`. Object-based route configuration.
 
 ```tsx
-// BAD: Старый JSX-based роутинг
+// BAD: Old JSX-based routing
 function App() {
   return (
     <BrowserRouter>
@@ -1200,7 +1200,7 @@ function App() {
   );
 }
 
-// GOOD: createBrowserRouter с объектной конфигурацией
+// GOOD: createBrowserRouter with object-based configuration
 import { createBrowserRouter, RouterProvider } from 'react-router';
 
 const router = createBrowserRouter([
@@ -1242,10 +1242,10 @@ function App() {
 
 ## 22. Route Loaders and Actions
 
-Loaders для GET-данных, Actions для мутаций. Вместо useEffect для data fetching.
+Loaders for GET data, Actions for mutations. Instead of useEffect for data fetching.
 
 ```tsx
-// BAD: useEffect для загрузки данных в компоненте
+// BAD: useEffect for loading data in a component
 function PostsList() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1258,16 +1258,16 @@ function PostsList() {
   return <ul>{posts.map(p => <li key={p.id}>{p.title}</li>)}</ul>;
 }
 
-// GOOD: Loader загружает данные ДО рендера компонента
+// GOOD: Loader loads data BEFORE component render
 import { useLoaderData, type LoaderFunctionArgs } from 'react-router';
 
-// Loader — выполняется до рендера, данные доступны сразу
+// Loader — runs before render, data is available immediately
 export async function postsLoader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const page = url.searchParams.get('page') ?? '1';
 
   const response = await fetch(`/api/posts?page=${page}`, {
-    signal: request.signal,  // Отмена при навигации
+    signal: request.signal,  // Cancel on navigation
   });
 
   if (!response.ok) {
@@ -1277,7 +1277,7 @@ export async function postsLoader({ request }: LoaderFunctionArgs) {
   return response.json();
 }
 
-// Action — обрабатывает POST/PUT/DELETE
+// Action — handles POST/PUT/DELETE
 export async function createPostAction({ request }: LoaderFunctionArgs) {
   const formData = await request.formData();
   const title = formData.get('title') as string;
@@ -1296,7 +1296,7 @@ export async function createPostAction({ request }: LoaderFunctionArgs) {
   return { success: true };
 }
 
-// Компонент — чистый рендер, данные уже загружены
+// Component — pure render, data already loaded
 function PostsList() {
   const posts = useLoaderData() as Post[];
 
@@ -1312,22 +1312,22 @@ function PostsList() {
 
 ## 23. Lazy Loading with React.lazy + Suspense
 
-Ленивая загрузка route-level компонентов. Не мелких UI элементов.
+Lazy loading for route-level components. Not small UI elements.
 
 ```tsx
-// BAD: Все компоненты в бандле — огромный initial load
+// BAD: All components in the bundle — huge initial load
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 
-// GOOD: lazy() для route-level компонентов
+// GOOD: lazy() for route-level components
 const HomePage = lazy(() => import('./pages/HomePage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 
-// GOOD: React Router v7 встроенный lazy
+// GOOD: React Router v7 built-in lazy
 const router = createBrowserRouter([
   {
     path: '/',
@@ -1336,7 +1336,7 @@ const router = createBrowserRouter([
       {
         path: 'dashboard',
         lazy: () => import('./pages/DashboardPage'),
-        // Модуль экспортирует: Component, loader, action, errorElement
+        // Module exports: Component, loader, action, errorElement
       },
       {
         path: 'settings',
@@ -1345,7 +1345,7 @@ const router = createBrowserRouter([
       {
         path: 'analytics',
         lazy: {
-          // Гранулярный lazy — загружаем loader и Component раздельно
+          // Granular lazy — load loader and Component separately
           loader: async () => (await import('./pages/analytics.loader')).loader,
           Component: async () => (await import('./pages/AnalyticsPage')).default,
         },
@@ -1354,7 +1354,7 @@ const router = createBrowserRouter([
   },
 ]);
 
-// GOOD: Suspense с осмысленным fallback
+// GOOD: Suspense with a meaningful fallback
 function App() {
   return (
     <Suspense fallback={<PageSkeleton />}>
@@ -1364,30 +1364,30 @@ function App() {
 }
 ```
 
-**Правила:**
-- `lazy()` только для страниц и крупных модулей, не для кнопок и иконок
-- React Router v7 `lazy` предпочтительнее `React.lazy` для routes
-- Fallback = skeleton страницы, не пустой спиннер
+**Rules:**
+- `lazy()` only for pages and large modules, not for buttons and icons
+- React Router v7 `lazy` is preferred over `React.lazy` for routes
+- Fallback = page skeleton, not an empty spinner
 
 ## 24. Environment Variables (VITE_ prefix)
 
-Клиентские переменные ОБЯЗАНЫ иметь префикс `VITE_`. Типизация через `env.d.ts`.
+Client-side variables MUST have the `VITE_` prefix. Typed via `env.d.ts`.
 
 ```tsx
-// BAD: Нет VITE_ префикса — переменная не попадет в клиентский бандл
+// BAD: No VITE_ prefix — variable will not be included in the client bundle
 // .env
 DATABASE_URL=postgres://...
 API_KEY=secret-key
 
 // console.log(import.meta.env.API_KEY) → undefined!
 
-// GOOD: Префикс VITE_ для клиентских, без префикса для серверных
+// GOOD: VITE_ prefix for client-side, no prefix for server-side
 // .env
 VITE_API_URL=https://api.example.com
 VITE_APP_TITLE=My App
-DATABASE_URL=postgres://...     # Только на сервере (build scripts)
+DATABASE_URL=postgres://...     # Server-side only (build scripts)
 
-// GOOD: Типизация через env.d.ts
+// GOOD: Typing via env.d.ts
 // src/env.d.ts
 /// <reference types="vite/client" />
 
@@ -1401,22 +1401,22 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-// Использование — типизировано, автокомплит работает
+// Usage — typed, autocomplete works
 const API_URL = import.meta.env.VITE_API_URL;
 ```
 
 ## 25. Proxy Configuration for API Calls
 
-Dev proxy чтобы не сталкиваться с CORS. Относительные пути в коде.
+Dev proxy to avoid CORS issues. Relative paths in code.
 
 ```tsx
-// BAD: Хардкод URL — разные для dev и prod, CORS проблемы
+// BAD: Hardcoded URL — different for dev and prod, CORS issues
 async function fetchPosts() {
   const response = await fetch('http://localhost:8080/api/posts');
   return response.json();
 }
 
-// GOOD: Относительные пути + Vite proxy
+// GOOD: Relative paths + Vite proxy
 // vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -1438,9 +1438,9 @@ export default defineConfig({
   },
 });
 
-// В коде — всегда относительные пути
+// In code — always relative paths
 async function fetchPosts(): Promise<Post[]> {
-  const response = await fetch('/api/posts');  // Proxy перенаправит на :8080
+  const response = await fetch('/api/posts');  // Proxy will redirect to :8080
   if (!response.ok) {
     throw new Error(`Failed to fetch posts: ${response.status}`);
   }
@@ -1450,26 +1450,26 @@ async function fetchPosts(): Promise<Post[]> {
 
 ## 26. Code Splitting Strategies
 
-Разделение кода по маршрутам и тяжелым зависимостям.
+Code splitting by routes and heavy dependencies.
 
 ```tsx
-// BAD: Одна точка входа — все в одном бандле
+// BAD: Single entry point — everything in one bundle
 import { Chart } from 'chart.js';    // 200KB!
 import { Editor } from 'monaco-editor'; // 2MB!
 
-// GOOD: Динамический импорт тяжелых зависимостей
+// GOOD: Dynamic import for heavy dependencies
 const ChartComponent = lazy(() =>
   import('./components/Chart').then((mod) => ({ default: mod.Chart }))
 );
 
-// GOOD: Manual chunks в vite.config.ts
+// GOOD: Manual chunks in vite.config.ts
 // vite.config.ts
 export default defineConfig({
   build: {
     rollupOptions: {
       output: {
         manualChunks: {
-          // Вендорные библиотеки в отдельный чанк (кешируется независимо)
+          // Vendor libraries in a separate chunk (cached independently)
           'vendor-react': ['react', 'react-dom'],
           'vendor-router': ['react-router'],
           'vendor-charts': ['chart.js', 'recharts'],
@@ -1480,7 +1480,7 @@ export default defineConfig({
   },
 });
 
-// GOOD: Функциональное разделение — чанк для каждого feature модуля
+// GOOD: Functional splitting — a chunk for each feature module
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -1489,7 +1489,7 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('react')) return 'vendor-react';
             if (id.includes('chart')) return 'vendor-charts';
-            return 'vendor'; // Все остальные npm пакеты
+            return 'vendor'; // All other npm packages
           }
         },
       },
@@ -1500,15 +1500,15 @@ export default defineConfig({
 
 ## 27. Path Aliases Configuration
 
-Алиасы вместо относительных путей `../../../`. Настройка в vite.config.ts + tsconfig.json.
+Aliases instead of relative paths `../../../`. Configuration in vite.config.ts + tsconfig.json.
 
 ```tsx
-// BAD: Относительные импорты — хрупкие, нечитаемые
+// BAD: Relative imports — fragile, unreadable
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../../hooks/useAuth';
 import { formatDate } from '../../../utils/format';
 
-// GOOD: Алиасы через @/
+// GOOD: Aliases via @/
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDate } from '@/utils/format';
@@ -1529,7 +1529,7 @@ export default defineConfig({
   },
 });
 
-// tsconfig.json (для TypeScript автокомплита)
+// tsconfig.json (for TypeScript autocomplete)
 {
   "compilerOptions": {
     "baseUrl": ".",
@@ -1542,17 +1542,17 @@ export default defineConfig({
 
 ## 28. CSS Modules and Tailwind Setup
 
-CSS Modules для изоляции стилей. Tailwind для утилитарного подхода. Не смешивать.
+CSS Modules for style isolation. Tailwind for a utility-first approach. Do not mix.
 
 ```tsx
-// BAD: Глобальные CSS классы — конфликты имен
-import './UserCard.css';  // .card { } — может конфликтовать с другим .card
+// BAD: Global CSS classes — name conflicts
+import './UserCard.css';  // .card { } — may conflict with another .card
 
 function UserCard() {
   return <div className="card">...</div>;
 }
 
-// GOOD вариант A: CSS Modules — изоляция по умолчанию
+// GOOD option A: CSS Modules — isolation by default
 // UserCard.module.css
 // .card { padding: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; }
 // .title { font-weight: 600; }
@@ -1567,7 +1567,7 @@ function UserCard({ name }: { name: string }) {
   );
 }
 
-// GOOD вариант B: Tailwind CSS — утилитарные классы
+// GOOD option B: Tailwind CSS — utility classes
 function UserCard({ name }: { name: string }) {
   return (
     <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
@@ -1576,7 +1576,7 @@ function UserCard({ name }: { name: string }) {
   );
 }
 
-// GOOD: clsx/cn для условных классов (с Tailwind)
+// GOOD: clsx/cn for conditional classes (with Tailwind)
 import { clsx } from 'clsx';
 
 interface ButtonProps {
@@ -1613,21 +1613,21 @@ function Button({ variant, size = 'md', disabled, children }: ButtonProps) {
 
 ## 29. Build Optimization
 
-Анализ бандла, tree-shaking, оптимизация ассетов.
+Bundle analysis, tree-shaking, asset optimization.
 
 ```ts
-// vite.config.ts — Production оптимизация
+// vite.config.ts — Production optimization
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Минимальный target для меньшего полифилов
+    // Minimal target for fewer polyfills
     target: 'es2020',
-    // Размер warning
+    // Size warning
     chunkSizeWarningLimit: 500,
-    // Source maps для production debugging (опционально)
+    // Source maps for production debugging (optional)
     sourcemap: true,
     rollupOptions: {
       output: {
@@ -1638,7 +1638,7 @@ export default defineConfig({
       },
     },
   },
-  // Оптимизация зависимостей для dev server
+  // Dependency optimization for dev server
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router'],
   },
@@ -1646,53 +1646,53 @@ export default defineConfig({
 ```
 
 ```bash
-# Анализ бандла — обязательно перед production release
+# Bundle analysis — required before production release
 npx vite-bundle-visualizer
 
-# Проверка размера
+# Check size
 npx vite build --report
 ```
 
-**Правила:**
-- manualChunks для вендоров — кешируются отдельно от app кода
-- `optimizeDeps.include` для быстрого dev server старта
-- Проверять размер бандла перед каждым PR с новой зависимостью
+**Rules:**
+- manualChunks for vendors — cached separately from app code
+- `optimizeDeps.include` for fast dev server startup
+- Check bundle size before every PR that adds a new dependency
 
 ## 30. HMR and Fast Refresh
 
-Vite HMR работает автоматически. Не ломай его неправильными экспортами.
+Vite HMR works automatically. Do not break it with incorrect exports.
 
 ```tsx
-// BAD: Смешивание компонентов и не-компонентов в одном файле ломает Fast Refresh
+// BAD: Mixing components and non-components in one file breaks Fast Refresh
 // utils-and-components.tsx
-export const API_URL = '/api';  // Не компонент
+export const API_URL = '/api';  // Not a component
 
-export function UserCard() {    // Компонент
+export function UserCard() {    // Component
   return <div>User</div>;
 }
-// Vite Fast Refresh НЕ сработает — файл содержит смешанные экспорты
+// Vite Fast Refresh will NOT work — file contains mixed exports
 
-// GOOD: Разделяй компоненты и утилиты
+// GOOD: Separate components and utilities
 // constants.ts
 export const API_URL = '/api';
 
-// UserCard.tsx — только компонент
+// UserCard.tsx — component only
 export function UserCard() {
   return <div>User</div>;
 }
 
-// GOOD: Один компонент = один файл
+// GOOD: One component = one file
 // components/
-//   UserCard.tsx        — компонент
-//   UserCard.module.css — стили (опционально)
-//   UserCard.test.tsx   — тесты
-//   index.ts            — реэкспорт
+//   UserCard.tsx        — component
+//   UserCard.module.css — styles (optional)
+//   UserCard.test.tsx   — tests
+//   index.ts            — re-export
 ```
 
-**Правила:**
-- Один файл = один компонент (или один хук)
-- Константы, типы, утилиты — в отдельных файлах
-- Не использовать `export default` и named exports в одном файле для компонентов
+**Rules:**
+- One file = one component (or one hook)
+- Constants, types, utilities — in separate files
+- Do not mix `export default` and named exports in the same file for components
 
 <!-- /section:vite -->
 
@@ -1703,33 +1703,33 @@ export function UserCard() {
 Before submitting React/TypeScript code:
 
 **Core React (all projects):**
-- [ ] Функциональные компоненты only (class только для ErrorBoundary)
-- [ ] Props типизированы через interface (не inline, не any)
-- [ ] Не используется `React.FC` — обычная function declaration
-- [ ] Сложная логика вынесена в custom hooks
-- [ ] useEffect имеет cleanup и корректные зависимости
-- [ ] useMemo/useCallback только где реально нужно (не везде)
-- [ ] Нет prop drilling через 2+ компонента — используется Context или composition
-- [ ] Error Boundaries оборачивают крупные секции UI
-- [ ] Suspense с skeleton fallback для lazy-loaded компонентов
-- [ ] Стабильные key для динамических списков (не index, не random)
+- [ ] Functional components only (class only for ErrorBoundary)
+- [ ] Props typed via interface (not inline, not any)
+- [ ] `React.FC` not used — regular function declaration
+- [ ] Complex logic extracted into custom hooks
+- [ ] useEffect has cleanup and correct dependencies
+- [ ] useMemo/useCallback only where really needed (not everywhere)
+- [ ] No prop drilling through 2+ components — Context or composition used instead
+- [ ] Error Boundaries wrap major UI sections
+- [ ] Suspense with skeleton fallback for lazy-loaded components
+- [ ] Stable keys for dynamic lists (not index, not random)
 
 **Next.js App Router:**
-- [ ] Server Components по умолчанию, `'use client'` только для интерактивности
-- [ ] Правильные file conventions (page.tsx, layout.tsx, loading.tsx, error.tsx)
-- [ ] Server Actions для мутаций (не API routes для внутренних операций)
-- [ ] Data fetching в Server Components (async/await, не useEffect)
-- [ ] Metadata через `export const metadata` или `generateMetadata`
-- [ ] `revalidatePath`/`revalidateTag` после мутаций
-- [ ] `generateStaticParams` для динамических routes (SSG)
-- [ ] error.tsx компоненты имеют `'use client'`
+- [ ] Server Components by default, `'use client'` only for interactivity
+- [ ] Correct file conventions (page.tsx, layout.tsx, loading.tsx, error.tsx)
+- [ ] Server Actions for mutations (not API routes for internal operations)
+- [ ] Data fetching in Server Components (async/await, not useEffect)
+- [ ] Metadata via `export const metadata` or `generateMetadata`
+- [ ] `revalidatePath`/`revalidateTag` after mutations
+- [ ] `generateStaticParams` for dynamic routes (SSG)
+- [ ] error.tsx components have `'use client'`
 
 **Vite SPA:**
-- [ ] `createBrowserRouter` с объектной конфигурацией (не JSX routes)
-- [ ] Route loaders для data fetching (не useEffect)
-- [ ] Lazy loading для route-level компонентов
-- [ ] `VITE_` префикс для клиентских env переменных + env.d.ts типизация
-- [ ] Proxy настроен в vite.config.ts, код использует относительные пути
-- [ ] Manual chunks для вендорных библиотек
-- [ ] Path aliases `@/` в vite.config.ts + tsconfig.json
-- [ ] Один файл = один компонент (для Fast Refresh)
+- [ ] `createBrowserRouter` with object configuration (not JSX routes)
+- [ ] Route loaders for data fetching (not useEffect)
+- [ ] Lazy loading for route-level components
+- [ ] `VITE_` prefix for client-side env variables + env.d.ts typing
+- [ ] Proxy configured in vite.config.ts, code uses relative paths
+- [ ] Manual chunks for vendor libraries
+- [ ] Path aliases `@/` in vite.config.ts + tsconfig.json
+- [ ] One file = one component (for Fast Refresh)

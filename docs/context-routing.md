@@ -114,8 +114,8 @@ package.json + "next"         → react-patterns#core + #nextjs
 package.json + "vite"         → react-patterns#core + #vite
 package.json + "react" only   → react-patterns#core
 pyproject.toml + "fastapi"    → python-patterns#typing + #fastapi + #concurrency
-pyproject.toml only           → python-patterns#typing (+ #data, #errors по ключам)
-pytest/test/тест keyword      → python-testing#structure (companion auto)
+pyproject.toml only           → python-patterns#typing (+ #data, #errors by keyword)
+pytest/test/test keyword      → python-testing#structure (companion auto)
 ```
 
 This means in a monorepo with all three stacks, only the standards matching the current task's file types are loaded — never all at once.
