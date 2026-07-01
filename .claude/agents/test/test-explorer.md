@@ -89,7 +89,7 @@ Catalog (`commands/dev_plan.md`) + `refs/*-testing.md` / `refs/*-load.md`, а
 
 | Layer | Infra available | Runner command | Configured in |
 |-------|-----------------|----------------|---------------|
-| Integration | Testcontainers Postgres, MockMvc | `mvn verify -P integration` | pom.xml (failsafe) |
+| Integration | Testcontainers Postgres, MockMvc | `mvn verify -Dsurefire.skip=true -P integration` (isolate IT from Dev's Surefire units) | pom.xml (failsafe) |
 | Load | — (not set up) | — | — |
 | ... | ... | ... | ... |
 
