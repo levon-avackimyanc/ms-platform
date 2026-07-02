@@ -92,7 +92,7 @@ The planner picks keywords from a catalog embedded in its prompt:
 | `python-patterns#io` | `pathlib`, `Path`, `context manager`, `aiofiles` | I/O, resources |
 | `python-patterns#idiom` | `comprehension`, `match/case`, `functools`, `lru_cache`, `singledispatch` | Functional idioms |
 | `python-patterns#fastapi` | `fastapi`, `apirouter`, `depends`, `lifespan`, `pydantic-settings`, `field_validator` | FastAPI endpoints, Pydantic v2 |
-| `python-patterns#concurrency` | `asyncio`, `gather`, `taskgroup`, `connection pool`, `cancellation`, `httpx`, `streamingresponse`, `sync клиент` | Async/concurrency for FastAPI |
+| `python-patterns#concurrency` | `asyncio`, `gather`, `taskgroup`, `connection pool`, `cancellation`, `httpx`, `streamingresponse`, `sync client` | Async/concurrency for FastAPI |
 | **Python Testing** | | |
 | `python-testing#structure` | `pytest`, `pytest.raises`, `arrange act assert` | Pytest baseline (companion auto) |
 | `python-testing#config` | `asyncio_mode`, `strict-markers`, `xfail_strict`, `conftest hierarchy` | Pytest configuration |

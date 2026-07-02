@@ -165,10 +165,10 @@ cross-reference, if present). It is the contract the autotest authors follow.
 
 - **Exec** — run the authored suite per layer (runner commands from the test model).
   Each runner **must isolate its layer from Dev's Surefire unit suite** — Test scope is
-  decoupled from Dev. A plain `./mvnw verify` runs Surefire (`test` phase = Dev units)
+  decoupled from Dev. A plain `mvn verify` runs Surefire (`test` phase = Dev units)
   before Failsafe (`integration-test` phase = this layer), so a red Dev unit aborts the
   build and the IT layer never runs; catch it out-of-lane. Use `-Dsurefire.skip=true`
-  (or invoke the failsafe goals directly, e.g. `./mvnw failsafe:integration-test
+  (or invoke the failsafe goals directly, e.g. `mvn failsafe:integration-test
   failsafe:verify`) so a service-side bug is caught in-lane by this layer and triaged
   service-side, while pure Dev unit failures stay Dev's concern.
 - **Analyzer** — on a failure, triage from the **test-run logs** (+ Jacoco coverage

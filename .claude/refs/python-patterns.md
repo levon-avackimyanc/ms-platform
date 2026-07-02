@@ -1,28 +1,28 @@
 # Python Code Standards
 
-Современный Python (3.12+) — строгий, типизированный, иммутабельный по умолчанию. Если кодовая база этому не следует — она устаревшая, а не «питоничная».
+Modern Python (3.12+) — strict, typed, immutable by default. If a codebase doesn't follow this — it's outdated, not "pythonic".
 
-**Testing:** см. `.claude/refs/python-testing.md`
+**Testing:** see `.claude/refs/python-testing.md`
 
 <!-- section:layout -->
 
 # Part 1: Project Layout & Toolchain
 
-## 1. src/ Layout — обязательно
+## 1. src/ Layout — mandatory
 
-`src/` layout — это `src/main/java` для Python. Импорт `myservice` работает только после `pip install -e .`, что ловит баги «работает локально, падает в проде».
+`src/` layout is the `src/main/java` for Python. Importing `myservice` only works after `pip install -e .`, which catches "works locally, fails in prod" bugs.
 
 ```
 project/
-├── pyproject.toml           # единый конфиг (pom.xml/build.gradle)
-├── uv.lock                  # лок-файл (uv) или poetry.lock
+├── pyproject.toml           # single config (pom.xml/build.gradle)
+├── uv.lock                  # lock file (uv) or poetry.lock
 ├── .pre-commit-config.yaml
 ├── src/
 │   └── myservice/
 │       ├── __init__.py
-│       ├── domain/          # value objects, entities (без I/O!)
+│       ├── domain/          # value objects, entities (no I/O!)
 │       ├── application/     # use cases, services
-│       ├── infrastructure/  # БД, HTTP, очереди — реализации Protocol'ов
+│       ├── infrastructure/  # DB, HTTP, queues — Protocol implementations
 │       ├── api/             # FastAPI/Litestar handlers
 │       └── config.py
 └── tests/
@@ -33,15 +33,15 @@ project/
     └── fixtures/
 ```
 
-**Запрещено:**
-- `setup.py` — легаси, удалён из современных шаблонов
-- `requirements.txt` без лок-файла
-- top-level пакет в корне репозитория
-- Mixing `domain/` и `infrastructure/` импортов (чистый домен не знает про БД)
+**Forbidden:**
+- `setup.py` — legacy, removed from modern templates
+- `requirements.txt` without a lock file
+- top-level package in repository root
+- Mixing `domain/` and `infrastructure/` imports (clean domain knows nothing about DB)
 
-## 2. pyproject.toml — единый конфиг
+## 2. pyproject.toml — single config
 
-Один файл для всего: зависимости, линтеры, тесты, coverage. Никаких `setup.cfg`, `.flake8`, `tox.ini`, `mypy.ini`.
+One file for everything: dependencies, linters, tests, coverage. No `setup.cfg`, `.flake8`, `tox.ini`, `mypy.ini`.
 
 ```toml
 [project]
@@ -90,10 +90,10 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "D203",    # one-blank-line-before-class (конфликт с D211)
-    "D213",    # multi-line-summary-second-line (конфликт с D212)
-    "COM812",  # missing-trailing-comma (конфликт с formatter)
-    "ISC001",  # implicit-string-concat (конфликт с formatter)
+    "D203",    # one-blank-line-before-class (conflicts with D211)
+    "D213",    # multi-line-summary-second-line (conflicts with D212)
+    "COM812",  # missing-trailing-comma (conflicts with formatter)
+    "ISC001",  # implicit-string-concat (conflicts with formatter)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -114,10 +114,10 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 xfail_strict = true
 markers = [
-    "unit: быстрые тесты без I/O",
-    "integration: тесты с реальными зависимостями (БД, HTTP)",
-    "e2e: end-to-end тесты",
-    "slow: тесты выполняющиеся > 5 секунд",
+    "unit: fast tests without I/O",
+    "integration: tests with real dependencies (DB, HTTP)",
+    "e2e: end-to-end tests",
+    "slow: tests running > 5 seconds",
 ]
 
 [tool.coverage.run]
@@ -141,19 +141,19 @@ exclude_lines = [
 
 ## 3. Toolchain Stack
 
-| Цель | Инструмент | Java аналог |
+| Goal | Tool | Java equivalent |
 |---|---|---|
-| Менеджер зависимостей | **uv** (или Poetry/PDM) | Maven/Gradle |
-| Линтер + форматтер | **Ruff** | Checkstyle + Spotless |
-| Статический анализатор | **Pyright** (strict) | SpotBugs / ErrorProne |
-| Безопасность | **Bandit** + **pip-audit** | OWASP Dependency-Check |
-| Тесты | **pytest** | JUnit 5 |
+| Dependency manager | **uv** (or Poetry/PDM) | Maven/Gradle |
+| Linter + formatter | **Ruff** | Checkstyle + Spotless |
+| Static analyzer | **Pyright** (strict) | SpotBugs / ErrorProne |
+| Security | **Bandit** + **pip-audit** | OWASP Dependency-Check |
+| Tests | **pytest** | JUnit 5 |
 | Coverage | **coverage.py** | JaCoCo |
 | Property-based | **Hypothesis** | jqwik |
-| Контейнеры в тестах | **testcontainers-python** | Testcontainers |
+| Containers in tests | **testcontainers-python** | Testcontainers |
 | Pre-commit gate | **pre-commit** | Git hooks + Husky |
 
-**Ruff заменил**: flake8, isort, pylint, pyupgrade, autoflake, pep8-naming, pydocstyle, eradicate, bugbear. Один бинарь, ~50× быстрее.
+**Ruff replaced**: flake8, isort, pylint, pyupgrade, autoflake, pep8-naming, pydocstyle, eradicate, bugbear. One binary, ~50× faster.
 
 ## 4. Pre-commit Configuration
 
@@ -188,14 +188,14 @@ repos:
 
 # Part 2: Type System
 
-Type hints — не опция, а контракт. `pyright --strict` в CI работает как `javac -Werror`.
+Type hints — not an option, but a contract. `pyright --strict` in CI works like `javac -Werror`.
 
 ## 5. Type Hints Everywhere
 
-Все функции, переменные модуля, параметры, возвращаемые типы — с аннотациями. Без исключений.
+All functions, module variables, parameters, return types — with annotations. No exceptions.
 
 ```python
-# BAD: Нет типов — контракт не виден
+# BAD: No types — contract is invisible
 def process_order(order, items):
     total = 0
     for item in items:
@@ -203,48 +203,48 @@ def process_order(order, items):
     return {"order_id": order["id"], "total": total}
 
 
-# GOOD: Явные типы
+# GOOD: Explicit types
 from decimal import Decimal
 
 def process_order(order: Order, items: list[OrderItem]) -> OrderResult:
     total: Decimal = sum(
         (item.price * item.quantity for item in items),
-        start=Decimal("0"),  # ВАЖНО: без start будет int 0 → TypeError на Decimal
+        start=Decimal("0"),  # IMPORTANT: without start it will be int 0 → TypeError on Decimal
     )
     return OrderResult(order_id=order.id, total=total)
 ```
 
-**Правила:**
+**Rules:**
 ```python
-from __future__ import annotations  # отложенная оценка типов — в каждом файле
+from __future__ import annotations  # deferred type evaluation — in every file
 
-# Коллекции — встроенные generic (Python 3.9+)
+# Collections — built-in generics (Python 3.9+)
 names: list[str] = []
 config: dict[str, int] = {}
 unique_ids: set[int] = set()
 
-# Optional — через union (PEP 604, Python 3.10+)
+# Optional — via union (PEP 604, Python 3.10+)
 description: str | None = None
 
 # Callable
 handler: Callable[[Request], Response]
 
-# Возвращаемый тип — ВСЕГДА (включая None)
+# Return type — ALWAYS (including None)
 def get_name() -> str: ...
 def save(item: Item) -> None: ...
 async def fetch(url: str) -> bytes: ...
 ```
 
-## 6. Запрет на Any в production коде
+## 6. Any is banned in production code
 
-`Any` отключает проверку типов. Если иначе нельзя — `# type: ignore[reason]` с объяснением.
+`Any` disables type checking. If unavoidable — `# type: ignore[reason]` with explanation.
 
 ```python
-# BAD: Any проедает контракт
+# BAD: Any eats through the contract
 def parse(data: Any) -> dict[str, Any]:
     return json.loads(data)
 
-# GOOD: Конкретные типы или TypedDict
+# GOOD: Concrete types or TypedDict
 def parse(data: bytes) -> UserPayload:
     raw: dict[str, object] = json.loads(data)
     return UserPayload.model_validate(raw)
@@ -252,14 +252,14 @@ def parse(data: bytes) -> UserPayload:
 
 ## 7. Self, override, Final, Literal, NewType
 
-Современный type system Python — это Java `final`, `@Override`, sealed types, type-safe IDs.
+Modern Python type system is Java `final`, `@Override`, sealed types, type-safe IDs.
 
 ```python
 from typing import Final, Literal, NewType, Self, override
 
-# === Final — Java `final` для атрибутов и констант ===
+# === Final — Java `final` for attributes and constants ===
 class Config:
-    """Конфиг приложения, поля неизменяемы после init."""
+    """Application config, fields are immutable after init."""
     api_url: Final[str]
     timeout_seconds: Final[int]
 
@@ -267,15 +267,15 @@ class Config:
         self.api_url = api_url
         self.timeout_seconds = timeout
 
-MAX_RETRY_ATTEMPTS: Final = 3  # type выводится как Literal[3]
+MAX_RETRY_ATTEMPTS: Final = 3  # type inferred as Literal[3]
 
-# === Self — для fluent API и factory methods (PEP 673, 3.11+) ===
+# === Self — for fluent API and factory methods (PEP 673, 3.11+) ===
 class QueryBuilder:
     """Fluent SQL builder."""
     def __init__(self) -> None:
         self._where: list[str] = []
 
-    def where(self, condition: str) -> Self:  # вернёт правильный subclass
+    def where(self, condition: str) -> Self:  # returns correct subclass
         self._where.append(condition)
         return self
 
@@ -290,19 +290,19 @@ class BaseRepository:
 class UserRepository(BaseRepository):
     @override
     def find_by_id(self, entity_id: int) -> User | None:
-        # компилятор проверит что метод реально существует в родителе
+        # compiler will verify the method actually exists in the parent
         ...
 
-# === Literal — типобезопасные строковые константы ===
+# === Literal — type-safe string constants ===
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
-def set_level(level: LogLevel) -> None:  # mypy/pyright поймает опечатку
+def set_level(level: LogLevel) -> None:  # mypy/pyright will catch typos
     ...
 
 set_level("INFO")     # OK
 set_level("invalid")  # ❌ type error
 
-# === NewType — type-safe ID типы вместо голого int ===
+# === NewType — type-safe ID types instead of bare int ===
 UserId = NewType("UserId", int)
 OrderId = NewType("OrderId", int)
 
@@ -310,35 +310,35 @@ def transfer(from_user: UserId, to_user: UserId, order: OrderId) -> None: ...
 
 user_id = UserId(42)
 order_id = OrderId(100)
-transfer(user_id, order_id, user_id)  # ❌ type error: OrderId передан вместо UserId
+transfer(user_id, order_id, user_id)  # ❌ type error: OrderId passed instead of UserId
 ```
 
-## 8. Protocol — структурная типизация
+## 8. Protocol — structural typing
 
-`Protocol` (PEP 544) = Java интерфейс, но без обязательного `implements`. Любой класс с подходящей сигнатурой — реализация.
+`Protocol` (PEP 544) = Java interface, but without mandatory `implements`. Any class with a matching signature is an implementation.
 
 ```python
 from typing import Protocol, runtime_checkable
 
 class NotificationSender(Protocol):
-    """Контракт для отправки уведомлений."""
+    """Contract for sending notifications."""
     def send(self, recipient: str, message: str) -> bool: ...
 
 
-# Любой класс с подходящим методом — автоматически реализация
+# Any class with a matching method — automatically an implementation
 class EmailSender:
-    """Отправка email через SMTP."""
+    """Send email via SMTP."""
     def send(self, recipient: str, message: str) -> bool:
         return True
 
 class SmsSender:
-    """Отправка SMS через шлюз."""
+    """Send SMS via gateway."""
     def send(self, recipient: str, message: str) -> bool:
         return True
 
 
 def notify(sender: NotificationSender, recipient: str, message: str) -> bool:
-    """Принимает любой класс реализующий Protocol."""
+    """Accepts any class implementing the Protocol."""
     return sender.send(recipient, message)
 
 
@@ -349,16 +349,16 @@ notify(SmsSender(), "+79001234567", "Hello")     # OK
 **ABC vs Protocol:**
 
 ```python
-# Protocol — duck typing с проверкой типов (для DI)
+# Protocol — duck typing with type checking (for DI)
 class Repository(Protocol):
     def find_by_id(self, entity_id: int) -> Entity | None: ...
     def save(self, entity: Entity) -> Entity: ...
 
-# ABC — когда нужна общая логика (template method)
+# ABC — when shared logic is needed (template method)
 from abc import ABC, abstractmethod
 
 class BaseRepository[E: Entity](ABC):
-    """Базовый репозиторий с общей логикой."""
+    """Base repository with shared logic."""
 
     @abstractmethod
     def find_by_id(self, entity_id: int) -> E | None: ...
@@ -367,16 +367,16 @@ class BaseRepository[E: Entity](ABC):
     def save(self, entity: E) -> E: ...
 
     def find_or_raise(self, entity_id: int) -> E:
-        """Общая реализация — найти или бросить NotFoundError."""
+        """Shared implementation — find or raise NotFoundError."""
         result = self.find_by_id(entity_id)
         if result is None:
             raise NotFoundError(self.__class__.__name__, entity_id)
         return result
 ```
 
-## 9. assert_never — exhaustive проверки
+## 9. assert_never — exhaustive checks
 
-`typing.assert_never` = Java `sealed switch` exhaustiveness check. Если забыл case — pyright не пропустит.
+`typing.assert_never` = Java `sealed switch` exhaustiveness check. If you forget a case — pyright won't let it pass.
 
 ```python
 from typing import assert_never, Literal
@@ -384,21 +384,21 @@ from typing import assert_never, Literal
 OrderStatus = Literal["pending", "shipped", "delivered", "cancelled"]
 
 def describe_status(status: OrderStatus) -> str:
-    """Pyright проверяет покрытие всех значений."""
+    """Pyright checks coverage of all values."""
     match status:
         case "pending":
-            return "Ожидает обработки"
+            return "Awaiting processing"
         case "shipped":
-            return "Отправлен"
+            return "Shipped"
         case "delivered":
-            return "Доставлен"
+            return "Delivered"
         case "cancelled":
-            return "Отменён"
+            return "Cancelled"
         case _:
-            assert_never(status)  # ❌ компилятор скажет если case забыт
+            assert_never(status)  # ❌ compiler will complain if a case is missed
 
 
-# То же для discriminated unions
+# Same for discriminated unions
 @dataclass(frozen=True, slots=True)
 class Success:
     kind: Literal["success"] = "success"
@@ -418,22 +418,22 @@ def handle(result: Result) -> str:
         case Failure(error=e):
             return f"Error: {e}"
         case _:
-            assert_never(result)  # exhaustive проверка
+            assert_never(result)  # exhaustive check
 ```
 
-## 10. TYPE_CHECKING для разрыва циклов импортов
+## 10. TYPE_CHECKING for breaking import cycles
 
 ```python
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    # Импорт нужен ТОЛЬКО для type checker, не для runtime
+    # Import needed ONLY for type checker, not for runtime
     from myservice.domain.user import User
     from myservice.domain.order import Order
 
 class OrderService:
-    def for_user(self, user: User) -> list[Order]:  # типы как строки до runtime
+    def for_user(self, user: User) -> list[Order]:  # types as strings until runtime
         ...
 ```
 
@@ -445,53 +445,53 @@ class OrderService:
 
 # Part 3: Data Modeling
 
-## 11. Иммутабельность по умолчанию
+## 11. Immutability by default
 
-Все data containers — `frozen=True, slots=True, kw_only=True`. Это Java `record`.
+All data containers — `frozen=True, slots=True, kw_only=True`. This is Java `record`.
 
 ```python
-# BAD: Mutable, позиционные аргументы, без slots
+# BAD: Mutable, positional arguments, no slots
 @dataclass
 class Money:
     amount: Decimal
     currency: str
-    # Можно мутировать, лишние атрибуты, путаница в позициях
+    # Can mutate, extra attributes, positional confusion
 
 money = Money(Decimal("100"), "USD")
-money.amount = Decimal("999")  # ❌ Незаметно меняем
+money.amount = Decimal("999")  # ❌ Mutating silently
 
 
-# GOOD: Полностью защищённый dataclass
+# GOOD: Fully protected dataclass
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Money:
-    """Деньги — immutable value object."""
+    """Money — immutable value object."""
     amount: Decimal
     currency: str
 
-money = Money(amount=Decimal("100"), currency="USD")  # явные имена
+money = Money(amount=Decimal("100"), currency="USD")  # explicit names
 money.amount = Decimal("999")  # ❌ FrozenInstanceError
-money.extra = "foo"            # ❌ AttributeError (slots блокирует лишние)
+money.extra = "foo"            # ❌ AttributeError (slots blocks extras)
 ```
 
-**Что даёт каждый флаг:**
-- `frozen=True` — иммутабельность, hashable, эквивалент Java `final` полей.
-- `slots=True` — фиксированная схема, ~30% экономия памяти, запрет лишних атрибутов.
-- `kw_only=True` — обязательно именованные аргументы, нет ада из 7 позиционных.
+**What each flag provides:**
+- `frozen=True` — immutability, hashable, equivalent to Java `final` fields.
+- `slots=True` — fixed schema, ~30% memory savings, blocks extra attributes.
+- `kw_only=True` — enforces keyword arguments, no hell of 7 positionals.
 
 ## 12. dataclass vs Pydantic vs NamedTuple
 
-| Тип | Когда использовать |
+| Type | When to use |
 |---|---|
-| **`@dataclass`** | Внутренние value objects, DTO между слоями, domain entities |
-| **Pydantic BaseModel** | Границы системы — HTTP request/response, JSON, очереди |
-| **`NamedTuple`** | Лёгкие неизменяемые кортежи (точки, координаты, пары) |
-| **`TypedDict`** | JSON shape без runtime валидации (например ответ от API) |
+| **`@dataclass`** | Internal value objects, DTO between layers, domain entities |
+| **Pydantic BaseModel** | System boundaries — HTTP request/response, JSON, queues |
+| **`NamedTuple`** | Lightweight immutable tuples (points, coordinates, pairs) |
+| **`TypedDict`** | JSON shape without runtime validation (e.g., API response) |
 
 ```python
 # === dataclass: domain layer ===
 @dataclass(frozen=True, slots=True, kw_only=True)
 class OrderCalculation:
-    """Результат расчёта стоимости заказа."""
+    """Result of order cost calculation."""
     subtotal: Decimal
     tax: Decimal
     total: Decimal
@@ -500,38 +500,38 @@ class OrderCalculation:
 from pydantic import BaseModel, Field
 
 class OrderResponse(BaseModel):
-    """HTTP-ответ создания заказа."""
+    """HTTP response for order creation."""
     id: int
     total: Decimal = Field(..., gt=0)
     created_at: datetime
 
-# === NamedTuple: лёгкие кортежи ===
+# === NamedTuple: lightweight tuples ===
 class Point(NamedTuple):
     x: float
     y: float
 
-# === TypedDict: shape для не-валидируемых данных ===
+# === TypedDict: shape for non-validated data ===
 class GitHubUser(TypedDict):
     login: str
     id: int
     avatar_url: str
 ```
 
-## 13. Enum — никаких магических строк
+## 13. Enum — no magic strings
 
 ```python
-# BAD: Магические строки — опечатка = баг в рантайме
+# BAD: Magic strings — typo = runtime bug
 def set_status(order: Order, status: str) -> None:
     order.status = status  # "active"? "Active"? "ACTIVE"?
 
-set_status(order, "actve")  # Опечатка прошла — упадёт через час
+set_status(order, "actve")  # Typo passed — will fail an hour later
 
 
-# GOOD: StrEnum (Python 3.11+) — сериализуется как строка автоматически
+# GOOD: StrEnum (Python 3.11+) — serializes as string automatically
 from enum import StrEnum, IntEnum, auto
 
 class OrderStatus(StrEnum):
-    """Статусы заказа в жизненном цикле."""
+    """Order statuses in the lifecycle."""
     PENDING = "pending"
     CONFIRMED = "confirmed"
     SHIPPED = "shipped"
@@ -546,16 +546,16 @@ print(OrderStatus.CONFIRMED)         # "confirmed"
 json.dumps({"s": OrderStatus.CONFIRMED})  # {"s": "confirmed"}
 
 
-# IntEnum — для числовых констант
+# IntEnum — for numeric constants
 class Priority(IntEnum):
     LOW = 1
     MEDIUM = 2
     HIGH = 3
 ```
 
-**Когда `Literal`, а когда `Enum`:**
-- `Enum` — есть поведение/методы, нужна итерация значений, важна идентичность.
-- `Literal["a", "b"]` — лёгкое перечисление, нет методов, чисто type-level.
+**When `Literal`, when `Enum`:**
+- `Enum` — has behavior/methods, needs value iteration, identity matters.
+- `Literal["a", "b"]` — lightweight enumeration, no methods, purely type-level.
 
 <!-- /section:data -->
 
@@ -567,19 +567,19 @@ class Priority(IntEnum):
 
 ## 14. Custom Exception Hierarchy
 
-Иерархия исключений как в Java: базовый класс приложения, доменные подклассы.
+Exception hierarchy like Java: base application class, domain subclasses.
 
 ```python
-# BAD: Голые Exception без контекста
+# BAD: Bare Exception without context
 def get_user(user_id: int):
     user = db.find(user_id)
     if not user:
-        raise Exception("not found")  # Какой user? Что делать?
+        raise Exception("not found")  # Which user? What to do?
 
 
-# GOOD: Иерархия с контекстом
+# GOOD: Hierarchy with context
 class AppError(Exception):
-    """Базовое исключение приложения. Никогда не наследуется от BaseException."""
+    """Base application exception. Never inherits from BaseException."""
 
     def __init__(self, message: str, code: str = "UNKNOWN") -> None:
         self.message = message
@@ -588,19 +588,19 @@ class AppError(Exception):
 
 
 class DomainError(AppError):
-    """Ошибки бизнес-логики (отличается от технических ошибок)."""
+    """Business logic errors (distinct from technical errors)."""
 
 
 class InfrastructureError(AppError):
-    """Ошибки инфраструктуры (БД, сеть, файлы)."""
+    """Infrastructure errors (DB, network, files)."""
 
 
 class NotFoundError(DomainError):
-    """Сущность не найдена."""
+    """Entity not found."""
 
     def __init__(self, entity: str, entity_id: str | int) -> None:
         super().__init__(
-            message=f"{entity} с id={entity_id} не найден",
+            message=f"{entity} with id={entity_id} not found",
             code="NOT_FOUND",
         )
         self.entity = entity
@@ -608,18 +608,18 @@ class NotFoundError(DomainError):
 
 
 class ValidationError(DomainError):
-    """Ошибка валидации входных данных."""
+    """Input data validation error."""
 
     def __init__(self, field: str, reason: str) -> None:
         super().__init__(
-            message=f"Поле '{field}': {reason}",
+            message=f"Field '{field}': {reason}",
             code="VALIDATION_ERROR",
         )
         self.field = field
         self.reason = reason
 
 
-# Использование — информативно
+# Usage — informative
 def get_user(user_id: int) -> User:
     user = db.find(user_id)
     if user is None:
@@ -627,57 +627,57 @@ def get_user(user_id: int) -> User:
     return user
 ```
 
-## 15. raise from — сохранение причины
+## 15. raise from — preserving the cause
 
-Всегда используй `raise X from original` — сохраняет цепочку, как Java `caused by`.
+Always use `raise X from original` — preserves the chain, like Java `caused by`.
 
 ```python
-# BAD: Теряем оригинальную ошибку
+# BAD: Losing the original error
 def fetch_user(user_id: int) -> User:
     try:
         return db.find_by_id(user_id)
     except SQLAlchemyError:
-        raise InfrastructureError("DB error")  # ❌ потеряли stack trace
+        raise InfrastructureError("DB error")  # ❌ lost stack trace
 
 
-# GOOD: from сохраняет причину
+# GOOD: from preserves the cause
 def fetch_user(user_id: int) -> User:
     try:
         return db.find_by_id(user_id)
     except SQLAlchemyError as exc:
-        raise InfrastructureError("DB error") from exc  # ✅ полная цепочка
+        raise InfrastructureError("DB error") from exc  # ✅ full chain
 
 
-# GOOD: from None — если намеренно скрываем (security, абстракция)
+# GOOD: from None — if intentionally hiding (security, abstraction)
 def authenticate(token: str) -> User:
     try:
         return decode_jwt(token)
     except (jwt.InvalidSignatureError, jwt.ExpiredSignatureError) as exc:
-        # не показываем деталь почему именно токен невалиден
+        # not showing details of why exactly the token is invalid
         raise AuthError("Invalid credentials") from None
 ```
 
-## 16. ExceptionGroup — несколько ошибок сразу
+## 16. ExceptionGroup — multiple errors at once
 
-Python 3.11+: можно бросить пачку ошибок (например все ошибки валидации).
+Python 3.11+: you can throw a batch of errors (e.g., all validation errors).
 
 ```python
 def validate_order(order: OrderInput) -> None:
-    """Собирает ВСЕ ошибки валидации, не падает на первой."""
+    """Collects ALL validation errors, does not fail on first."""
     errors: list[ValidationError] = []
 
     if not order.customer_id:
-        errors.append(ValidationError("customer_id", "обязательное поле"))
+        errors.append(ValidationError("customer_id", "required field"))
     if order.total < 0:
-        errors.append(ValidationError("total", "не может быть отрицательным"))
+        errors.append(ValidationError("total", "cannot be negative"))
     if not order.items:
-        errors.append(ValidationError("items", "минимум одна позиция"))
+        errors.append(ValidationError("items", "at least one item required"))
 
     if errors:
-        raise ExceptionGroup("Ошибки валидации заказа", errors)
+        raise ExceptionGroup("Order validation errors", errors)
 
 
-# Обработка через except*
+# Handling via except*
 try:
     validate_order(order)
 except* ValidationError as eg:
@@ -685,57 +685,57 @@ except* ValidationError as eg:
         logger.warning("validation_failed", field=err.field, reason=err.reason)
 ```
 
-## 17. Никогда `except:` или `except Exception:` без логики
+## 17. Never `except:` or `except Exception:` without logic
 
 ```python
-# BAD: Глотает всё, включая SystemExit, KeyboardInterrupt
+# BAD: Swallows everything, including SystemExit, KeyboardInterrupt
 try:
     do_work()
 except:
-    pass  # ❌ скрывает баги навсегда
+    pass  # ❌ hides bugs forever
 
 
-# BAD: Глотает Exception без логирования
+# BAD: Swallows Exception without logging
 try:
     do_work()
 except Exception:
-    pass  # ❌ хуже чем падение — невидимая ошибка
+    pass  # ❌ worse than crashing — invisible error
 
 
-# GOOD: Логируем + перебрасываем или явное намерение
+# GOOD: Log + re-raise or explicit intent
 try:
     do_work()
 except SpecificError as exc:
     logger.exception("operation_failed", operation="do_work")
-    raise  # перебрасываем
+    raise  # re-raise
 
-# GOOD: Только если ДЕЙСТВИТЕЛЬНО можем восстановиться
+# GOOD: Only if we can TRULY recover
 try:
     cache.set(key, value)
 except CacheError as exc:
-    # кэш недоступен — продолжаем без него, но логируем
+    # cache unavailable — continue without it, but log
     logger.warning("cache_unavailable", error=str(exc))
 ```
 
-## 18. Никаких голых assert в production
+## 18. No bare assert in production
 
-`assert` отключается флагом `python -O`. Для проверок инвариантов используй `raise`.
+`assert` is disabled by the `python -O` flag. Use `raise` to check invariants.
 
 ```python
-# BAD: assert в продакшен-коде
+# BAD: assert in production code
 def withdraw(account: Account, amount: Decimal) -> None:
-    assert amount > 0, "amount must be positive"  # ❌ пропадёт под -O
+    assert amount > 0, "amount must be positive"  # ❌ disappears under -O
     account.balance -= amount
 
 
-# GOOD: явное исключение
+# GOOD: explicit exception
 def withdraw(account: Account, amount: Decimal) -> None:
     if amount <= 0:
-        raise ValidationError("amount", "должна быть положительной")
+        raise ValidationError("amount", "must be positive")
     account.balance -= amount
 ```
 
-`assert` OK **только** в тестах и для type narrowing внутри функции.
+`assert` OK **only** in tests and for type narrowing inside a function.
 
 <!-- /section:errors -->
 
@@ -745,19 +745,19 @@ def withdraw(account: Account, amount: Decimal) -> None:
 
 # Part 5: Logging
 
-## 19. structlog — структурированные логи
+## 19. structlog — structured logs
 
-`print()` запрещён в любом коде кроме CLI. Структурированные логи обязательны.
+`print()` is forbidden in any code except CLI. Structured logs are mandatory.
 
 ```python
-# BAD: print не виден в проде, нет уровней, нет контекста
+# BAD: print is invisible in prod, no levels, no context
 def process_payment(order_id: str, amount: float):
     print(f"Processing payment for {order_id}")
     print(f"Amount: {amount}")
     print("Done!")
 
 
-# GOOD: structlog — JSON логи, привязанный контекст
+# GOOD: structlog — JSON logs, bound context
 import structlog
 
 logger = structlog.get_logger()
@@ -775,24 +775,24 @@ def process_payment(order_id: str, amount: Decimal) -> PaymentResult:
         raise
 ```
 
-**Конвенции имён событий:**
-- snake_case в прошедшем времени или present continuous: `payment_completed`, `user_created`, `request_started`
-- НЕ предложения: `"Payment was completed"` — это для message, не для event
+**Event name conventions:**
+- snake_case in past tense or present continuous: `payment_completed`, `user_created`, `request_started`
+- NOT sentences: `"Payment was completed"` — that's for message, not for event
 
 ## 20. Stdlib logging — fallback
 
-Если structlog недоступен — stdlib `logging` с lazy форматированием.
+If structlog is unavailable — stdlib `logging` with lazy formatting.
 
 ```python
 import logging
 
 logger = logging.getLogger(__name__)
 
-# GOOD: lazy формат — не тратит CPU если уровень DEBUG выключен
-logger.info("Обработка платежа: order=%s, amount=%s", order_id, amount)
+# GOOD: lazy format — does not waste CPU if DEBUG level is off
+logger.info("Processing payment: order=%s, amount=%s", order_id, amount)
 
-# BAD: f-string выполняется ВСЕГДА, даже если лог отфильтрован
-logger.info(f"Обработка платежа: order={order_id}, amount={amount}")  # ❌
+# BAD: f-string executes ALWAYS, even if log is filtered out
+logger.info(f"Processing payment: order={order_id}, amount={amount}")  # ❌
 ```
 
 <!-- /section:logging -->
@@ -805,10 +805,10 @@ logger.info(f"Обработка платежа: order={order_id}, amount={amoun
 
 ## 21. pathlib over os.path
 
-`pathlib.Path` — единственный API для файлов и путей.
+`pathlib.Path` — the only API for files and paths.
 
 ```python
-# BAD: os.path — строковые операции, нечитаемо
+# BAD: os.path — string operations, hard to read
 import os
 
 config_path = os.path.join(os.path.dirname(__file__), "..", "config", "app.yaml")
@@ -817,7 +817,7 @@ if os.path.exists(config_path):
         data = f.read()
 
 
-# GOOD: pathlib — объектный API, кроссплатформенный
+# GOOD: pathlib — object API, cross-platform
 from pathlib import Path
 
 CONFIG_DIR: Final[Path] = Path(__file__).parent.parent / "config"
@@ -825,46 +825,46 @@ CONFIG_DIR: Final[Path] = Path(__file__).parent.parent / "config"
 def load_config(name: str = "app.yaml") -> str:
     config_path = CONFIG_DIR / name
     if not config_path.exists():
-        raise FileNotFoundError(f"Конфиг не найден: {config_path}")
+        raise FileNotFoundError(f"Config not found: {config_path}")
     return config_path.read_text(encoding="utf-8")
 ```
 
-**Полезные методы:**
+**Useful methods:**
 ```python
 path = Path("/data/reports/2024")
 
-path.mkdir(parents=True, exist_ok=True)  # Создать с родителями
-path.iterdir()                           # Итерация по содержимому
-path.glob("*.csv")                       # Поиск файлов
-path.rglob("**/*.py")                    # Рекурсивный поиск
+path.mkdir(parents=True, exist_ok=True)  # Create with parents
+path.iterdir()                           # Iterate over contents
+path.glob("*.csv")                       # Find files
+path.rglob("**/*.py")                    # Recursive search
 path.suffix                              # ".csv"
 path.stem                                # "report"
-path.with_suffix(".json")                # Замена расширения
+path.with_suffix(".json")                # Replace extension
 path.read_text(encoding="utf-8")
 path.write_text(data, encoding="utf-8")
 path.read_bytes()
 path.write_bytes(data)
 ```
 
-## 22. Context Managers — обязательно для ресурсов
+## 22. Context Managers — required for resources
 
 ```python
-# BAD: Ручное управление — можно забыть закрыть
+# BAD: Manual management — easy to forget to close
 def export_data(data: list[dict], path: Path) -> None:
     f = open(path, "w")
     try:
         json.dump(data, f)
     finally:
-        f.close()  # При исключении в close() файл может остаться открытым
+        f.close()  # If close() raises, the file may remain open
 
 
-# GOOD: with — автоматическое закрытие
+# GOOD: with — automatic closing
 def export_data(data: list[dict[str, object]], path: Path) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 ```
 
-**Кастомный context manager через contextlib:**
+**Custom context manager via contextlib:**
 ```python
 from contextlib import contextmanager, asynccontextmanager
 from collections.abc import Iterator, AsyncIterator
@@ -872,7 +872,7 @@ import time
 
 @contextmanager
 def measure_time(operation: str) -> Iterator[None]:
-    """Замер времени выполнения операции."""
+    """Measures execution time of an operation."""
     start = time.perf_counter()
     try:
         yield
@@ -883,7 +883,7 @@ def measure_time(operation: str) -> Iterator[None]:
 
 @asynccontextmanager
 async def db_transaction(session: AsyncSession) -> AsyncIterator[AsyncSession]:
-    """Транзакция с автоматическим rollback при ошибке."""
+    """Transaction with automatic rollback on error."""
     try:
         yield session
         await session.commit()
@@ -900,12 +900,12 @@ async def db_transaction(session: AsyncSession) -> AsyncIterator[AsyncSession]:
 
 # Part 7: Functional Idioms
 
-## 23. Comprehensions — читаемые, не вложенные
+## 23. Comprehensions — readable, not nested
 
-Один уровень. Вложенные comprehensions запрещены — разбить на функции.
+One level. Nested comprehensions are forbidden — break into functions.
 
 ```python
-# BAD: Вложенный comprehension — нечитаемо
+# BAD: Nested comprehension — hard to read
 result = [
     transform(item)
     for group in data
@@ -915,9 +915,9 @@ result = [
 ]
 
 
-# GOOD: Разбить на шаги
+# GOOD: Break into steps
 def is_eligible(item: Item, allowed: set[str]) -> bool:
-    """Проверяет, подходит ли товар по цене и категории."""
+    """Checks whether the item qualifies by price and category."""
     return item.price > 0 and item.category in allowed
 
 active_items: list[Item] = [
@@ -938,16 +938,16 @@ result: list[TransformedItem] = [
 users_by_id: dict[int, User] = {user.id: user for user in users}
 unique_emails: set[str] = {user.email.lower() for user in users}
 
-# generator expression — для больших коллекций (не материализует список)
+# generator expression — for large collections (does not materialise the list)
 total = sum(item.price for item in items)
 ```
 
 ## 24. match/case — pattern matching
 
-Python 3.10+ pattern matching — мощнее Java switch для рекурсивных структур.
+Python 3.10+ pattern matching — more powerful than Java switch for recursive structures.
 
 ```python
-# Простой match по литералам
+# Simple match on literals
 def http_status_message(code: int) -> str:
     match code:
         case 200 | 201 | 204:
@@ -964,7 +964,7 @@ def http_status_message(code: int) -> str:
             return f"Unknown status: {code}"
 
 
-# Pattern matching по структурам — destructuring
+# Pattern matching on structures — destructuring
 @dataclass(frozen=True, slots=True)
 class Point:
     x: float
@@ -992,7 +992,7 @@ def area(shape: Shape) -> float:
             assert_never(shape)
 
 
-# Pattern matching по dict (для JSON парсинга)
+# Pattern matching on dict (for JSON parsing)
 def parse_event(event: dict[str, object]) -> Event:
     match event:
         case {"type": "user_created", "id": int(uid), "name": str(name)}:
@@ -1005,39 +1005,39 @@ def parse_event(event: dict[str, object]) -> Event:
             raise ValueError("Invalid event format")
 ```
 
-## 25. functools — кэширование и мультиметоды
+## 25. functools — caching and multimethods
 
 ```python
 from functools import cache, lru_cache, cached_property, singledispatch
 
-# === @cache — без лимита, для чистых функций ===
+# === @cache — no limit, for pure functions ===
 @cache
 def fibonacci(n: int) -> int:
     if n < 2:
         return n
     return fibonacci(n - 1) + fibonacci(n - 2)
 
-# === @lru_cache(maxsize=N) — с лимитом памяти ===
+# === @lru_cache(maxsize=N) — with memory limit ===
 @lru_cache(maxsize=1024)
 def get_user_settings(user_id: int) -> UserSettings:
-    """Кэш на 1024 пользователя."""
+    """Cache for 1024 users."""
     return db.fetch_settings(user_id)
 
-# === @cached_property — кэш на инстансе ===
+# === @cached_property — cache on instance ===
 class Order:
-    """Заказ. items_count считается один раз."""
+    """Order. items_count is computed once."""
     def __init__(self, items: list[OrderItem]) -> None:
         self.items = items
 
     @cached_property
     def items_count(self) -> int:
-        """Дорогой подсчёт — кэшируется на инстансе."""
+        """Expensive computation — cached on instance."""
         return sum(item.quantity for item in self.items)
 
-# === @singledispatch — multimethods (как @overload в Java) ===
+# === @singledispatch — multimethods (like @overload in Java) ===
 @singledispatch
 def serialize(value: object) -> str:
-    raise NotImplementedError(f"Не умею сериализовать {type(value).__name__}")
+    raise NotImplementedError(f"Cannot serialize {type(value).__name__}")
 
 @serialize.register
 def _(value: int) -> str:
@@ -1052,41 +1052,41 @@ def _(value: Decimal) -> str:
     return f"{value:.2f}"
 ```
 
-## 26. Async/Await — только для I/O
+## 26. Async/Await — only for I/O
 
-`async` для реального I/O. Не для CPU-bound (там `concurrent.futures.ProcessPoolExecutor`).
+`async` for real I/O only. Not for CPU-bound work (use `concurrent.futures.ProcessPoolExecutor` there).
 
 ```python
-# BAD: async без причины — добавляет overhead
+# BAD: async without reason — adds overhead
 async def calculate_tax(amount: Decimal) -> Decimal:
-    return amount * Decimal("0.20")  # Чистый расчёт, async не нужен
+    return amount * Decimal("0.20")  # Pure calculation, async not needed
 
 
-# GOOD: async для реального I/O
+# GOOD: async for real I/O
 async def fetch_user(user_id: int, session: AsyncSession) -> User | None:
-    """Загрузка пользователя из БД."""
+    """Load user from the database."""
     result = await session.execute(
         select(UserModel).where(UserModel.id == user_id)
     )
     return result.scalar_one_or_none()
 
 
-# GOOD: sync для вычислений
+# GOOD: sync for computations
 def calculate_tax(amount: Decimal) -> Decimal:
-    """Расчёт налога — чистая функция, без I/O."""
+    """Tax calculation — pure function, no I/O."""
     return amount * Decimal("0.20")
 ```
 
-**Параллельный I/O — gather/TaskGroup:**
+**Parallel I/O — gather/TaskGroup:**
 ```python
-# BAD: Последовательные запросы (медленно)
+# BAD: Sequential requests (slow)
 async def get_dashboard(user_id: int) -> Dashboard:
     user = await fetch_user(user_id)
-    orders = await fetch_orders(user_id)    # Ждёт user!
-    balance = await fetch_balance(user_id)  # Ждёт orders!
+    orders = await fetch_orders(user_id)    # Waits for user!
+    balance = await fetch_balance(user_id)  # Waits for orders!
 
 
-# GOOD: asyncio.gather — параллельно
+# GOOD: asyncio.gather — parallel
 async def get_dashboard(user_id: int) -> Dashboard:
     user, orders, balance = await asyncio.gather(
         fetch_user(user_id),
@@ -1096,13 +1096,13 @@ async def get_dashboard(user_id: int) -> Dashboard:
     return Dashboard(user=user, orders=orders, balance=balance)
 
 
-# GOOD: TaskGroup (Python 3.11+) — структурированная конкурентность
+# GOOD: TaskGroup (Python 3.11+) — structured concurrency
 async def get_dashboard(user_id: int) -> Dashboard:
     async with asyncio.TaskGroup() as tg:
         user_task = tg.create_task(fetch_user(user_id))
         orders_task = tg.create_task(fetch_orders(user_id))
         balance_task = tg.create_task(fetch_balance(user_id))
-    # Если любая задача упала — все остальные отменяются автоматически
+    # If any task fails — all others are cancelled automatically
     return Dashboard(
         user=user_task.result(),
         orders=orders_task.result(),
@@ -1118,12 +1118,12 @@ async def get_dashboard(user_id: int) -> Dashboard:
 
 # Part 8: FastAPI Patterns
 
-## 27. APIRouter — модульная структура
+## 27. APIRouter — modular structure
 
-Все эндпоинты по роутерам. `main.py` — только сборка.
+All endpoints go into routers. `main.py` — assembly only.
 
 ```python
-# BAD: Всё в main.py — 500 строк эндпоинтов
+# BAD: Everything in main.py — 500 lines of endpoints
 app = FastAPI()
 
 @app.get("/users/{user_id}")
@@ -1131,10 +1131,10 @@ async def get_user(user_id: int): ...
 
 @app.post("/users")
 async def create_user(user: UserCreate): ...
-# ... ещё 50 эндпоинтов
+# ... 50 more endpoints
 
 
-# GOOD: Роутеры по доменам
+# GOOD: Routers per domain
 # src/myservice/api/users.py
 from fastapi import APIRouter, Depends, status
 
@@ -1145,7 +1145,7 @@ async def get_user(
     user_id: int,
     service: Annotated[UserService, Depends(get_user_service)],
 ) -> UserResponse:
-    """Получение пользователя по ID."""
+    """Get user by ID."""
     return await service.get_by_id(user_id)
 
 
@@ -1161,22 +1161,22 @@ def create_app() -> FastAPI:
     return app
 ```
 
-## 28. Pydantic v2 — валидация на границе
+## 28. Pydantic v2 — validation at the boundary
 
 ```python
 from pydantic import BaseModel, Field, field_validator, model_validator, computed_field
 from typing import Self
 
 class OrderItemCreate(BaseModel):
-    """Позиция заказа."""
+    """Order line item."""
     product_id: int = Field(..., gt=0)
     quantity: int = Field(..., gt=0, le=10000)
     price: Decimal = Field(..., gt=0, decimal_places=2)
 
 
 class OrderCreate(BaseModel):
-    """Данные для создания заказа."""
-    customer_id: int = Field(..., gt=0, description="ID покупателя")
+    """Data for creating an order."""
+    customer_id: int = Field(..., gt=0, description="Customer ID")
     items: list[OrderItemCreate] = Field(..., min_length=1)
     discount_percent: float = Field(default=0, ge=0, le=100)
     comment: str | None = Field(default=None, max_length=500)
@@ -1184,28 +1184,28 @@ class OrderCreate(BaseModel):
     @field_validator("items")
     @classmethod
     def validate_unique_products(cls, v: list[OrderItemCreate]) -> list[OrderItemCreate]:
-        """Уникальность товаров в заказе."""
+        """Uniqueness of products in the order."""
         product_ids = [item.product_id for item in v]
         if len(product_ids) != len(set(product_ids)):
-            raise ValueError("Дублирующиеся товары в заказе")
+            raise ValueError("Duplicate products in the order")
         return v
 
     @model_validator(mode="after")
     def validate_total_limit(self) -> Self:
-        """Заказ не может превышать лимит."""
+        """Order cannot exceed the limit."""
         total = sum(item.price * item.quantity for item in self.items)
         if total > Decimal("1000000"):
-            raise ValueError("Заказ превышает лимит 1млн")
+            raise ValueError("Order exceeds the 1M limit")
         return self
 
     @computed_field
     @property
     def total_items(self) -> int:
-        """Общее количество позиций."""
+        """Total number of line items."""
         return len(self.items)
 ```
 
-## 29. Depends() — DI в FastAPI
+## 29. Depends() — DI in FastAPI
 
 ```python
 from typing import Annotated
@@ -1213,16 +1213,16 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 async def get_db() -> AsyncIterator[AsyncSession]:
-    """Сессия БД с автоматическим закрытием."""
+    """DB session with automatic closing."""
     async with async_session_factory() as session:
         yield session
 
-# Type alias для переиспользования
+# Type alias for reuse
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 async def get_user_service(db: DbSession) -> UserService:
-    """Сервис пользователей с внедрённой сессией."""
+    """User service with injected session."""
     return UserService(repo=UserRepository(db))
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
@@ -1230,7 +1230,7 @@ UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int, service: UserServiceDep) -> UserResponse:
-    """Зависимости внедряются автоматически."""
+    """Dependencies are injected automatically."""
     return await service.get_by_id(user_id)
 ```
 
@@ -1240,15 +1240,15 @@ async def get_user(user_id: int, service: UserServiceDep) -> UserResponse:
 from fastapi import status, Query, Path
 
 class UserResponse(BaseModel):
-    """Ответ с данными пользователя."""
+    """Response with user data."""
     id: int
     email: str
     display_name: str
     created_at: datetime
-    model_config = ConfigDict(from_attributes=True)  # позволяет из ORM
+    model_config = ConfigDict(from_attributes=True)  # allows ORM objects
 
 class UserListResponse(BaseModel):
-    """Список с пагинацией."""
+    """Paginated list."""
     items: list[UserResponse]
     total: int
     page: int
@@ -1259,10 +1259,10 @@ class UserListResponse(BaseModel):
     "/",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Создание пользователя",
+    summary="Create user",
 )
 async def create_user(body: UserCreate, service: UserServiceDep) -> UserResponse:
-    """Создаёт нового пользователя и возвращает его данные."""
+    """Creates a new user and returns their data."""
     return await service.create(body)
 
 
@@ -1273,22 +1273,22 @@ async def list_users(
     *,
     service: UserServiceDep,
 ) -> UserListResponse:
-    """Список пользователей с пагинацией."""
+    """Paginated user list."""
     return await service.list(page=page, page_size=page_size)
 
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
-    user_id: Annotated[int, Path(gt=0, description="ID пользователя")],
+    user_id: Annotated[int, Path(gt=0, description="User ID")],
     service: UserServiceDep,
 ) -> UserResponse:
-    """Получение пользователя по ID."""
+    """Get user by ID."""
     return await service.get_by_id(user_id)
 ```
 
 ## 31. Global Exception Handler
 
-Единый формат ответов на ошибки.
+Unified error response format.
 
 ```python
 from fastapi import Request
@@ -1296,7 +1296,7 @@ from fastapi.responses import JSONResponse
 
 
 class AppError(Exception):
-    """Базовая ошибка приложения с HTTP статусом."""
+    """Base application error with HTTP status."""
     def __init__(self, message: str, code: str, status_code: int = 400) -> None:
         self.message = message
         self.code = code
@@ -1305,7 +1305,7 @@ class AppError(Exception):
 class NotFoundError(AppError):
     def __init__(self, entity: str, entity_id: int | str) -> None:
         super().__init__(
-            message=f"{entity} с id={entity_id} не найден",
+            message=f"{entity} with id={entity_id} not found",
             code="NOT_FOUND",
             status_code=404,
         )
@@ -1324,7 +1324,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
 
-# Сервис бросает понятные исключения
+# Service raises typed exceptions
 async def get_user(self, user_id: int) -> User:
     user = await self.repo.find_by_id(user_id)
     if user is None:
@@ -1332,9 +1332,9 @@ async def get_user(self, user_id: int) -> User:
     return user
 ```
 
-## 32. Lifespan для startup/shutdown
+## 32. Lifespan for startup/shutdown
 
-`lifespan` context manager. `on_event` deprecated.
+`lifespan` context manager. `on_event` is deprecated.
 
 ```python
 from contextlib import asynccontextmanager
@@ -1342,7 +1342,7 @@ from collections.abc import AsyncIterator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Жизненный цикл приложения."""
+    """Application lifecycle."""
     # Startup
     engine = create_async_engine(settings.database_url)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -1350,7 +1350,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.session_factory = session_factory
     logger.info("app_started", database=settings.database_url)
 
-    yield  # приложение работает
+    yield  # application is running
 
     # Shutdown
     await engine.dispose()
@@ -1360,7 +1360,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="My Service", lifespan=lifespan)
 ```
 
-## 33. BackgroundTasks — лёгкие фоновые задачи
+## 33. BackgroundTasks — lightweight background tasks
 
 ```python
 from fastapi import BackgroundTasks
@@ -1371,31 +1371,31 @@ async def create_order(
     background_tasks: BackgroundTasks,
     service: Annotated[OrderService, Depends(get_order_service)],
 ) -> OrderResponse:
-    """Создание заказа. Email отправляется в фоне после ответа клиенту."""
+    """Create order. Email is sent in the background after the response."""
     order = await service.create(body)
     background_tasks.add_task(send_confirmation_email, order.id, order.customer_email)
     return order
 
 
 async def send_confirmation_email(order_id: int, email: str) -> None:
-    """Фоновая отправка. НЕ перебрасываем — фон не ломает основной flow."""
+    """Background send. Do NOT re-raise — background must not break the main flow."""
     try:
         await email_service.send(to=email, template="order_confirmation", order_id=order_id)
     except Exception:
         logger.exception("email_send_failed", order_id=order_id, email=email)
 ```
 
-⚠️ Для тяжёлых задач (минуты/часы) — Celery, RQ, Dramatiq. BackgroundTasks для секундных операций.
+⚠️ For heavy tasks (minutes/hours) — Celery, RQ, Dramatiq. BackgroundTasks for second-scale operations.
 
-## 34. Middleware — кросс-эндпоинт логика
+## 34. Middleware — cross-endpoint logic
 
-CORS, логирование, авторизация — через middleware, не в каждом handler'е.
+CORS, logging, authorization — via middleware, not in every handler.
 
 ```python
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Стандартный CORS
+# Standard CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -1406,7 +1406,7 @@ app.add_middleware(
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Логирование всех HTTP-запросов с временем выполнения."""
+    """Log all HTTP requests with execution time."""
 
     async def dispatch(self, request: Request, call_next):
         start = time.perf_counter()
@@ -1426,14 +1426,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(RequestLoggingMiddleware)
 ```
 
-## 35. Settings через pydantic-settings
+## 35. Settings via pydantic-settings
 
 ```python
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, SecretStr
 
 class Settings(BaseSettings):
-    """Конфигурация приложения. Читается из env + .env файла."""
+    """Application configuration. Read from env + .env file."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -1441,11 +1441,11 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    # Обязательные
-    database_url: str = Field(..., description="URL подключения к БД")
-    secret_key: SecretStr = Field(..., description="Секретный ключ для JWT")
+    # Required
+    database_url: str = Field(..., description="Database connection URL")
+    secret_key: SecretStr = Field(..., description="Secret key for JWT")
 
-    # С дефолтами
+    # With defaults
     debug: bool = Field(default=False)
     app_name: str = Field(default="My Service")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -1458,7 +1458,7 @@ from functools import cache
 
 @cache
 def get_settings() -> Settings:
-    """Синглтон настроек."""
+    """Settings singleton."""
     return Settings()
 
 
@@ -1475,37 +1475,37 @@ async def health(settings: Annotated[Settings, Depends(get_settings)]) -> dict[s
 
 # Part 9: Async Concurrency & FastAPI Performance
 
-Критичные правила для production FastAPI. Большинство багов на проде — не в бизнес-логике, а в неправильном обращении с event loop, threadpool, пулами соединений и cancellation.
+Critical rules for production FastAPI. Most prod bugs are not in business logic but in incorrect handling of the event loop, threadpool, connection pools, and cancellation.
 
 ## 36. Event Loop Fundamentals
 
-FastAPI/uvicorn = **один процесс = один event loop = один поток**. Любая блокирующая операция в `async def` останавливает обработку **всех** запросов до её завершения.
+FastAPI/uvicorn = **one process = one event loop = one thread**. Any blocking operation inside `async def` halts **all** request processing until it completes.
 
 ```
 Thread 1 (Event Loop):
-  ├─ request 1: await db.fetch()       ← await освобождает loop
-  ├─ request 2: await http.get()       ← может работать параллельно
-  ├─ request 3: time.sleep(5)          ← ❌ БЛОКИРУЕТ ВСЕ остальные на 5 секунд!
-  └─ request 4: ждёт... ждёт... ждёт...
+  ├─ request 1: await db.fetch()       ← await yields the loop
+  ├─ request 2: await http.get()       ← can run in parallel
+  ├─ request 3: time.sleep(5)          ← ❌ BLOCKS ALL others for 5 seconds!
+  └─ request 4: waiting... waiting... waiting...
 ```
 
-**Что блокирует loop:**
-- `time.sleep()` вместо `asyncio.sleep()`
-- `requests.get()` вместо `httpx.AsyncClient.get()`
-- `psycopg2` (sync) вместо `asyncpg` или async SQLAlchemy
-- `redis-py` sync API вместо `redis.asyncio`
-- `boto3` (sync) вместо `aioboto3`
-- `pymongo` (sync) вместо `motor`
-- Чтение/запись файлов через `open()` без `aiofiles` или `asyncio.to_thread`
-- CPU-bound > 10ms (regex на больших строках, json гигабайтов, ML inference)
-- `subprocess.run()` вместо `asyncio.create_subprocess_exec`
-- Тяжёлые `json.dumps()` / `json.loads()` на больших структурах
+**What blocks the loop:**
+- `time.sleep()` instead of `asyncio.sleep()`
+- `requests.get()` instead of `httpx.AsyncClient.get()`
+- `psycopg2` (sync) instead of `asyncpg` or async SQLAlchemy
+- `redis-py` sync API instead of `redis.asyncio`
+- `boto3` (sync) instead of `aioboto3`
+- `pymongo` (sync) instead of `motor`
+- File reads/writes via `open()` without `aiofiles` or `asyncio.to_thread`
+- CPU-bound > 10ms (regex on large strings, gigabyte JSON, ML inference)
+- `subprocess.run()` instead of `asyncio.create_subprocess_exec`
+- Heavy `json.dumps()` / `json.loads()` on large structures
 
-**Обнаружение блокировки:**
+**Detecting blockage:**
 ```python
-# Метрика event loop lag в production
+# Event loop lag metric in production
 async def measure_loop_lag() -> None:
-    """Если > 100ms — есть блокировка."""
+    """If > 100ms — there is a blockage."""
     while True:
         start = time.perf_counter()
         await asyncio.sleep(0)
@@ -1515,100 +1515,100 @@ async def measure_loop_lag() -> None:
         await asyncio.sleep(1)
 
 
-# uvloop — замена встроенного event loop, в 2-4 раза быстрее
+# uvloop — replacement for the built-in event loop, 2-4x faster
 # uvicorn --loop uvloop main:app
 ```
 
 ## 37. Sync vs Async Endpoints
 
-FastAPI запускает их **по-разному**:
+FastAPI runs them **differently**:
 
-| Endpoint | Где исполняется | Когда использовать |
+| Endpoint | Where it runs | When to use |
 |---|---|---|
-| `async def` | На event loop | Async I/O (asyncpg, httpx, redis.asyncio) |
-| `def` (sync) | В anyio threadpool (40 потоков default) | Sync библиотеки которые иначе блокировали бы loop |
+| `async def` | On the event loop | Async I/O (asyncpg, httpx, redis.asyncio) |
+| `def` (sync) | In anyio threadpool (40 threads default) | Sync libraries that would otherwise block the loop |
 
 ```python
-# GOOD: async def с async библиотеками
+# GOOD: async def with async libraries
 @router.get("/users/{user_id}")
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)) -> UserResponse:
     user = await db.get(User, user_id)
     return UserResponse.model_validate(user)
 
 
-# GOOD: sync def если зависимость sync
+# GOOD: sync def when the dependency is sync
 @router.get("/legacy/users/{user_id}")
 def get_user_legacy(user_id: int, db: Session = Depends(get_sync_db)) -> UserResponse:
-    """psycopg2 sync — пусть FastAPI запустит в threadpool."""
+    """psycopg2 sync — let FastAPI run it in the threadpool."""
     user = db.query(User).filter_by(id=user_id).one()
     return UserResponse.model_validate(user)
 
 
-# CRITICAL BAD: sync либа внутри async def — блок event loop!
+# CRITICAL BAD: sync lib inside async def — blocks the event loop!
 @router.get("/users/{user_id}")
 async def get_user_bad(user_id: int) -> UserResponse:
-    user = sync_db.query(User).filter_by(id=user_id).one()  # ❌ БЛОК всего loop!
+    user = sync_db.query(User).filter_by(id=user_id).one()  # ❌ BLOCKS the entire loop!
     return UserResponse.model_validate(user)
 ```
 
-**Правило:** если в endpoint есть **хотя бы один блокирующий вызов**, либо весь endpoint делай `def`, либо оборачивай блокирующие куски в `asyncio.to_thread()`.
+**Rule:** if an endpoint has **even one blocking call**, either make the whole endpoint `def`, or wrap blocking pieces in `asyncio.to_thread()`.
 
 ## 38. Threadpool Capacity
 
-AnyIO threadpool по умолчанию = **40 потоков**. Каждый sync endpoint занимает 1 поток на время выполнения. Если все 40 заняты — sync запросы встают в очередь.
+AnyIO threadpool default = **40 threads**. Each sync endpoint occupies 1 thread for its duration. If all 40 are busy — sync requests queue up.
 
 ```python
 from anyio import to_thread
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Увеличить лимит если много sync endpoints / DB sessions
+    # Increase limit if there are many sync endpoints / DB sessions
     limiter = to_thread.current_default_thread_limiter()
     limiter.total_tokens = 100  # default 40
     yield
 ```
 
-**Сколько ставить:**
-- Чисто async сервис → не трогать (40 хватает с запасом).
-- Mix sync/async → `max(40, среднее число одновременных sync операций × 2)`.
-- Если sync эндпоинт держит DB connection → `total_tokens >= db_pool.max_size`.
+**How many to set:**
+- Pure async service → leave as-is (40 is plenty).
+- Mixed sync/async → `max(40, average concurrent sync operations × 2)`.
+- If sync endpoint holds a DB connection → `total_tokens >= db_pool.max_size`.
 
-⚠️ Слишком высокий лимит → больше памяти на стеки потоков (1MB × N) и context switches.
+⚠️ Too high a limit → more memory for thread stacks (1MB × N) and context switches.
 
-## 39. Async Libraries — карта замен
+## 39. Async Libraries — replacement map
 
-| Sync (НЕ использовать в async def) | Async замена |
+| Sync (do NOT use inside async def) | Async replacement |
 |---|---|
 | `requests` | **`httpx.AsyncClient`** |
-| `urllib.request` | **`httpx.AsyncClient`** или `aiohttp` |
-| `psycopg2` / `psycopg` (sync) | **`asyncpg`** или `psycopg[async]` |
+| `urllib.request` | **`httpx.AsyncClient`** or `aiohttp` |
+| `psycopg2` / `psycopg` (sync) | **`asyncpg`** or `psycopg[async]` |
 | SQLAlchemy 1.x sync | **SQLAlchemy 2.x async** + asyncpg |
-| `redis-py` sync API | **`redis.asyncio`** (тот же пакет) |
-| `pymongo` | **`motor`** или `pymongo` async (3.13+) |
-| `boto3` | **`aioboto3`** или `aiobotocore` |
+| `redis-py` sync API | **`redis.asyncio`** (same package) |
+| `pymongo` | **`motor`** or `pymongo` async (3.13+) |
+| `boto3` | **`aioboto3`** or `aiobotocore` |
 | `kafka-python` | **`aiokafka`** |
 | `pika` (RabbitMQ) | **`aio-pika`** |
 | `elasticsearch` (sync) | **`elasticsearch[async]`** |
-| File I/O (`open()`) | **`aiofiles`** или `asyncio.to_thread(path.read_bytes)` |
+| File I/O (`open()`) | **`aiofiles`** or `asyncio.to_thread(path.read_bytes)` |
 | `subprocess.run` | **`asyncio.create_subprocess_exec`** |
 | `time.sleep` | **`asyncio.sleep`** |
 | `socket` | **`asyncio.open_connection`** |
 | `imaplib` / `smtplib` | **`aioimaplib`** / `aiosmtplib` |
 
-## 40. asyncio.to_thread — обёртка над sync
+## 40. asyncio.to_thread — wrapper for sync
 
-Если async замены нет — оборачиваем в threadpool.
+If there is no async replacement — wrap in threadpool.
 
 ```python
 import asyncio
 
-# GOOD: asyncio.to_thread (Python 3.9+) — простой случай
+# GOOD: asyncio.to_thread (Python 3.9+) — simple case
 async def get_user_credit_score(user_id: int) -> int:
-    """Sync либа credit_check_sdk не имеет async версии."""
+    """Sync lib credit_check_sdk has no async version."""
     return await asyncio.to_thread(credit_check_sdk.get_score, user_id)
 
 
-# Типобезопасная обёртка
+# Type-safe wrapper
 from typing import ParamSpec, TypeVar
 from collections.abc import Callable
 
@@ -1616,13 +1616,13 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 async def run_blocking(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
-    """Выполняет блокирующую функцию в threadpool."""
+    """Runs a blocking function in the threadpool."""
     return await asyncio.to_thread(func, *args, **kwargs)
 ```
 
-**Когда `to_thread` НЕ помогает:**
-- CPU-bound на pure Python — GIL не отпускается, всё равно блокирует.
-- Чрезвычайно быстрые вызовы (< 1ms) — overhead на switch выше выгоды.
+**When `to_thread` does NOT help:**
+- CPU-bound on pure Python — GIL is not released, still blocks.
+- Extremely fast calls (< 1ms) — switch overhead outweighs the benefit.
 
 ## 41. CPU-bound — ProcessPoolExecutor
 
@@ -1638,7 +1638,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 @router.post("/render-pdf")
 async def render_pdf(data: RenderRequest, request: Request) -> bytes:
-    """PDF рендеринг — CPU-bound, отдельный процесс."""
+    """PDF rendering — CPU-bound, separate process."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         request.app.state.cpu_pool,
@@ -1648,14 +1648,14 @@ async def render_pdf(data: RenderRequest, request: Request) -> bytes:
     )
 ```
 
-⚠️ Аргументы должны быть picklable. Тяжёлые вычисления > секунды лучше выносить в Celery / отдельный микросервис.
+⚠️ Arguments must be picklable. Heavy computations lasting more than a second are better off in Celery or a separate microservice.
 
 ## 42. Singleton Clients via Lifespan
 
-Не создавай клиент на каждый запрос. Это HTTPS handshake каждый раз, нет переиспользования соединений.
+Do not create a client on every request. That means an HTTPS handshake each time and no connection reuse.
 
 ```python
-# BAD: новый клиент в каждом запросе
+# BAD: new client on every request
 @router.get("/external-data")
 async def get_data() -> dict:
     async with httpx.AsyncClient() as client:  # ❌
@@ -1663,7 +1663,7 @@ async def get_data() -> dict:
         return response.json()
 
 
-# GOOD: singleton через lifespan
+# GOOD: singleton via lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.http_client = httpx.AsyncClient(
@@ -1689,7 +1689,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # Graceful shutdown — обратный порядок
+    # Graceful shutdown — reverse order
     await app.state.http_client.aclose()
     await app.state.redis.aclose()
     await app.state.db_pool.close()
@@ -1707,12 +1707,12 @@ async def get_data(client: HttpClient) -> dict:
     return response.json()
 ```
 
-**Несколько клиентов под разные сервисы:**
+**Multiple clients for different services:**
 ```python
-# Разные timeouts/limits для разных backend'ов
+# Different timeouts/limits for different backends
 app.state.payment_client = httpx.AsyncClient(
     base_url="https://gateway.example.com",
-    timeout=httpx.Timeout(60.0, connect=10.0),  # платёжки медленные
+    timeout=httpx.Timeout(60.0, connect=10.0),  # payment gateways are slow
     limits=httpx.Limits(max_connections=20),
 )
 
@@ -1723,29 +1723,29 @@ app.state.notification_client = httpx.AsyncClient(
 )
 ```
 
-## 43. Timeouts — на всё
+## 43. Timeouts — on everything
 
-Любая сетевая операция без таймаута = потенциально вечно висящий запрос. Висящие съедают connection pool, потом весь threadpool, потом весь сервис.
+Any network operation without a timeout = potentially hanging forever. Hanging requests exhaust the connection pool, then the threadpool, then the entire service.
 
 ```python
-# BAD: нет таймаута — может висеть часами
+# BAD: no timeout — can hang for hours
 async with httpx.AsyncClient() as client:
     response = await client.get("https://slow-api.example.com")  # ❌
 
 
-# GOOD: explicit timeout с разделением фаз
+# GOOD: explicit timeout with phase breakdown
 async with httpx.AsyncClient(
     timeout=httpx.Timeout(
-        connect=5.0,    # установка TCP+TLS
-        read=30.0,      # чтение после connect
-        write=10.0,     # запись (для POST)
-        pool=5.0,       # ожидание свободного connection в pool
+        connect=5.0,    # TCP+TLS handshake
+        read=30.0,      # reading after connect
+        write=10.0,     # writing (for POST)
+        pool=5.0,       # waiting for a free connection in the pool
     ),
 ) as client:
     response = await client.get("https://api.example.com")
 
 
-# asyncio.timeout() — Python 3.11+, глобальный таймаут на блок
+# asyncio.timeout() — Python 3.11+, global timeout for a block
 async def fetch_with_budget(url: str, budget_seconds: float = 10.0) -> str:
     try:
         async with asyncio.timeout(budget_seconds):
@@ -1756,11 +1756,11 @@ async def fetch_with_budget(url: str, budget_seconds: float = 10.0) -> str:
         raise
 
 
-# До 3.11 — asyncio.wait_for
+# Before 3.11 — asyncio.wait_for
 result = await asyncio.wait_for(slow_operation(), timeout=10.0)
 ```
 
-**DB query timeouts** — обязательны. Одна тяжёлая query без таймаута убьёт весь pool.
+**DB query timeouts** — mandatory. One heavy query without a timeout will kill the entire pool.
 
 ```python
 # asyncpg
@@ -1781,21 +1781,21 @@ engine = create_async_engine(
 
 **Default budgets:**
 
-| Операция | Connect | Read | Total |
+| Operation | Connect | Read | Total |
 |---|---|---|---|
-| Внутренний LAN сервис | 1s | 5s | 10s |
-| Внешний API | 5s | 10s | 30s |
-| Платёжный шлюз | 10s | 30s | 60s |
+| Internal LAN service | 1s | 5s | 10s |
+| External API | 5s | 10s | 30s |
+| Payment gateway | 10s | 30s | 60s |
 | LLM API | 5s | 60s | 120s |
 | DB query (OLTP) | 1s | 5s | 10s |
-| DB query (отчёт) | 1s | 30s | 60s |
+| DB query (report) | 1s | 30s | 60s |
 | Redis | 0.5s | 1s | 2s |
 
-Endpoint должен иметь **общий budget** меньше суммы внутренних таймаутов.
+An endpoint's **total budget** must be less than the sum of its internal timeouts.
 
 ## 44. Connection Pools
 
-Pool size **не должен** быть равен числу CPU. В async — pool size = ожидаемое число одновременных операций.
+Pool size **must not** equal the number of CPUs. In async — pool size = expected number of concurrent operations.
 
 ```python
 # Database (asyncpg)
@@ -1841,19 +1841,19 @@ client = httpx.AsyncClient(
 )
 ```
 
-**Формула pool size:**
+**Pool size formula:**
 ```
 DB pool size = (peak concurrent requests × queries per request) / target query duration
 
-Пример: 200 RPS, 10ms query, 2 query на request → 4 в среднем → запас 5x → pool_size = 20
+Example: 200 RPS, 10ms query, 2 queries per request → 4 on average → 5x headroom → pool_size = 20
 ```
 
-**Метрика:** `pool.in_use / pool.size`. Стабильно > 80% — увеличить. < 10% — уменьшить.
+**Metric:** `pool.in_use / pool.size`. Consistently > 80% — increase. < 10% — decrease.
 
 ## 45. asyncio.gather vs TaskGroup
 
 ```python
-# gather — независимые задачи, частичные неудачи OK
+# gather — independent tasks, partial failures OK
 async def get_dashboard(user_id: int) -> Dashboard:
     user, orders, balance = await asyncio.gather(
         fetch_user(user_id),
@@ -1863,9 +1863,9 @@ async def get_dashboard(user_id: int) -> Dashboard:
     return Dashboard(user=user, orders=orders, balance=balance)
 
 
-# Устойчивость к частичным падениям
+# Resilience to partial failures
 async def aggregate_stats(user_ids: list[int]) -> list[UserStats | None]:
-    """Если один user-сервис упал — остальные результаты сохраняются."""
+    """If one user-service call fails — other results are preserved."""
     results = await asyncio.gather(
         *(fetch_stats(uid) for uid in user_ids),
         return_exceptions=True,
@@ -1873,8 +1873,8 @@ async def aggregate_stats(user_ids: list[int]) -> list[UserStats | None]:
     return [r if not isinstance(r, Exception) else None for r in results]
 
 
-# TaskGroup (3.11+) — структурированная конкурентность
-# При падении любой задачи — все остальные cancel
+# TaskGroup (3.11+) — structured concurrency
+# If any task fails — all others are cancelled
 async def get_dashboard(user_id: int) -> Dashboard:
     async with asyncio.TaskGroup() as tg:
         user_task = tg.create_task(fetch_user(user_id))
@@ -1888,7 +1888,7 @@ async def get_dashboard(user_id: int) -> Dashboard:
     )
 
 
-# Обработка ошибок группы — except*
+# Handling group errors — except*
 try:
     dashboard = await get_dashboard(user_id)
 except* DBError as eg:
@@ -1900,17 +1900,17 @@ except* HTTPError as eg:
     raise
 ```
 
-**Правило выбора:**
-- `gather` — независимые задачи, можем переварить частичные неудачи.
-- `TaskGroup` — связанные задачи, нужно либо всё, либо ничего.
-- `as_completed` — обработка результатов в порядке готовности.
+**Choosing rule:**
+- `gather` — independent tasks, partial failures acceptable.
+- `TaskGroup` — related tasks, all-or-nothing semantics.
+- `as_completed` — process results in order of completion.
 
-⚠️ Без `return_exceptions=True` в gather: первое исключение прерывает gather, **но другие задачи продолжают работать в фоне** (могут оставлять ресурсы открытыми).
+⚠️ Without `return_exceptions=True` in gather: the first exception interrupts gather, **but other tasks keep running in the background** (may leave resources open).
 
-## 46. Semaphore — ограничение конкурентности
+## 46. Semaphore — concurrency limiting
 
 ```python
-# Ограничение параллельных вызовов внешнего API
+# Limit parallel calls to an external API
 class RateLimitedClient:
     def __init__(self, client: httpx.AsyncClient, max_concurrent: int = 10) -> None:
         self._client = client
@@ -1922,9 +1922,9 @@ class RateLimitedClient:
             return response.json()
 
 
-# Параллельная обработка батча с лимитом
+# Parallel batch processing with a limit
 async def process_batch(items: list[Item], max_concurrent: int = 20) -> list[Result]:
-    """Не более 20 параллельных обработок одновременно."""
+    """No more than 20 concurrent operations at a time."""
     semaphore = asyncio.Semaphore(max_concurrent)
 
     async def process_one(item: Item) -> Result:
@@ -1936,65 +1936,65 @@ async def process_batch(items: list[Item], max_concurrent: int = 20) -> list[Res
 
 ## 47. Cancellation — CancelledError
 
-В asyncio когда клиент закрывает соединение, FastAPI отменяет task → `asyncio.CancelledError`.
+In asyncio, when a client closes a connection, FastAPI cancels the task → `asyncio.CancelledError`.
 
 ```python
-# CRITICAL BAD: глотает CancelledError → задача не отменяется
+# CRITICAL BAD: swallows CancelledError → task is not cancelled
 async def process_request():
     try:
         await long_operation()
-    except Exception:  # ❌ ловит CancelledError тоже
+    except Exception:  # ❌ catches CancelledError too
         logger.exception("error")
         return {"status": "error"}
 
 
-# GOOD: явно пробрасываем CancelledError
+# GOOD: explicitly re-raise CancelledError
 async def process_request():
     try:
         await long_operation()
     except asyncio.CancelledError:
         logger.info("request_cancelled")
-        raise  # ОБЯЗАТЕЛЬНО — иначе task не остановится
+        raise  # REQUIRED — otherwise the task will not stop
     except SomeBusinessError:
         logger.exception("business_error")
         return {"status": "error"}
 
 
-# GOOD: cleanup при отмене через try/finally
+# GOOD: cleanup on cancellation via try/finally
 async def process_with_cleanup():
     resource = await acquire_resource()
     try:
         return await use_resource(resource)
     finally:
-        await resource.release()  # выполнится даже при CancelledError
+        await resource.release()  # runs even on CancelledError
 
 
-# asyncio.shield() — защита от cancellation для критичных операций
+# asyncio.shield() — protection from cancellation for critical operations
 async def transfer_money(from_id: int, to_id: int, amount: Decimal) -> None:
-    """Перевод средств — нельзя отменить после начала commit."""
+    """Money transfer — cannot cancel once the commit has started."""
     async with db_pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute("UPDATE accounts SET balance = balance - $1 WHERE id = $2",
                                amount, from_id)
             await conn.execute("UPDATE accounts SET balance = balance + $1 WHERE id = $2",
                                amount, to_id)
-            # клиент отвалился — нельзя отменить commit
+            # client disconnected — must not cancel commit
             await asyncio.shield(record_audit_log(from_id, to_id, amount))
 ```
 
-## 48. Fire-and-forget tasks правильно
+## 48. Fire-and-forget tasks done right
 
-`asyncio.create_task()` без удержания ссылки → task может быть собран GC.
+`asyncio.create_task()` without holding a reference → task can be garbage collected.
 
 ```python
-# BAD: задача может потеряться
+# BAD: task can be lost
 async def notify():
-    asyncio.create_task(send_email())  # ❌ нет ссылки → возможен GC
+    asyncio.create_task(send_email())  # ❌ no reference → possible GC
 
 
-# GOOD: TaskManager для fire-and-forget
+# GOOD: TaskManager for fire-and-forget
 class TaskManager:
-    """Менеджер для fire-and-forget задач — гарантированный lifecycle."""
+    """Manager for fire-and-forget tasks — guaranteed lifecycle."""
 
     def __init__(self) -> None:
         self._tasks: set[asyncio.Task] = set()
@@ -2017,7 +2017,7 @@ class TaskManager:
                     task.cancel()
 
 
-# Использование
+# Usage
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.tasks = TaskManager()
@@ -2033,11 +2033,11 @@ async def create_order(body: OrderCreate, request: Request) -> OrderResponse:
 ```
 
 ⚠️ **BackgroundTasks vs fire-and-forget vs Celery:**
-- `BackgroundTasks` — после ответа, в том же процессе. **Если процесс умрёт — задача потеряна**.
-- `create_task` + TaskManager — то же, но без привязки к request.
-- **Celery / Dramatiq / Arq / Taskiq** — для надёжности (persistent queue, retries). Используй для критичных задач (email подтверждения, биллинг).
+- `BackgroundTasks` — after the response, in the same process. **If the process dies — the task is lost**.
+- `create_task` + TaskManager — same, but not tied to a request.
+- **Celery / Dramatiq / Arq / Taskiq** — for reliability (persistent queue, retries). Use for critical tasks (confirmation emails, billing).
 
-## 49. Database в Async — правильная работа
+## 49. Database in Async — correct usage
 
 ```python
 # session.py
@@ -2053,7 +2053,7 @@ engine = create_async_engine(
 
 session_factory = async_sessionmaker(
     bind=engine,
-    expire_on_commit=False,  # критично для async
+    expire_on_commit=False,  # critical for async
     autoflush=False,
 )
 
@@ -2067,15 +2067,15 @@ async def get_db() -> AsyncIterator[AsyncSession]:
             raise
 ```
 
-**Lazy loading запрещён** — `MissingGreenlet` или скрытое блокирование.
+**Lazy loading is forbidden** — causes `MissingGreenlet` or hidden blocking.
 
 ```python
-# BAD: lazy loading в async
+# BAD: lazy loading in async
 user = await session.get(User, user_id)
-print(user.orders)  # ❌ implicit IO в async context
+print(user.orders)  # ❌ implicit IO in async context
 
 
-# GOOD: eager loading через selectinload (отдельный SELECT)
+# GOOD: eager loading via selectinload (separate SELECT)
 from sqlalchemy.orm import selectinload, joinedload
 
 user = await session.scalar(
@@ -2085,7 +2085,7 @@ user = await session.scalar(
 )
 
 
-# joinedload — JOIN для one-to-one
+# joinedload — JOIN for one-to-one
 user = await session.scalar(
     select(User)
     .options(joinedload(User.profile))
@@ -2093,11 +2093,11 @@ user = await session.scalar(
 )
 ```
 
-**Стратегии eager loading:**
-- `selectinload` — отдельный `SELECT WHERE id IN (...)`. Хорошо для one-to-many.
-- `joinedload` — JOIN. Для one-to-one и small one-to-many.
+**Eager loading strategies:**
+- `selectinload` — separate `SELECT WHERE id IN (...)`. Good for one-to-many.
+- `joinedload` — JOIN. For one-to-one and small one-to-many.
 
-**Транзакции:**
+**Transactions:**
 ```python
 async def transfer(session: AsyncSession, from_id: int, to_id: int, amount: Decimal) -> None:
     async with session.begin():
@@ -2109,12 +2109,12 @@ async def transfer(session: AsyncSession, from_id: int, to_id: int, amount: Deci
 
         from_account.balance -= amount
         to_account.balance += amount
-    # commit при выходе, rollback при exception
+    # commit on exit, rollback on exception
 ```
 
-**Bulk операции:**
+**Bulk operations:**
 ```python
-# 10K записей
+# 10K records
 await session.execute(insert(OrderItem), [{...} for p in products])
 await session.commit()
 
@@ -2129,9 +2129,9 @@ stmt = pg_insert(User).values(rows).on_conflict_do_update(
 await session.execute(stmt)
 ```
 
-## 50. Race Conditions — async ≠ нет race
+## 50. Race Conditions — async ≠ no race
 
-Async — concurrent, не parallel (один thread). Между `await` точками возможны переключения → race conditions.
+Async — concurrent, not parallel (single thread). Switches can occur between `await` points → race conditions.
 
 ```python
 # BAD: classic check-then-act race
@@ -2140,12 +2140,12 @@ class CounterService:
         self._count = 0
 
     async def increment_if_below(self, limit: int) -> None:
-        if self._count < limit:        # ← переключение возможно здесь
-            await asyncio.sleep(0)     # ← между check и act
-            self._count += 1           # ← race! Может превысить limit
+        if self._count < limit:        # ← switch possible here
+            await asyncio.sleep(0)     # ← between check and act
+            self._count += 1           # ← race! may exceed limit
 
 
-# GOOD: asyncio.Lock для критической секции
+# GOOD: asyncio.Lock for critical section
 class CounterService:
     def __init__(self) -> None:
         self._count = 0
@@ -2160,17 +2160,17 @@ class CounterService:
             return True
 ```
 
-**Распределённые блокировки** — для multi-pod через Redis:
+**Distributed locks** — for multi-pod via Redis:
 ```python
 async def acquire_lock(redis: Redis, key: str, ttl: int = 30) -> str | None:
-    """Возвращает токен если получили блокировку."""
+    """Returns token if lock was acquired."""
     token = secrets.token_hex(16)
     acquired = await redis.set(key, token, nx=True, ex=ttl)
     return token if acquired else None
 
 
 async def release_lock(redis: Redis, key: str, token: str) -> None:
-    """Релизим только если токен совпадает (защита от чужой блокировки)."""
+    """Release only if token matches (protection against foreign lock)."""
     lua = """
     if redis.call('GET', KEYS[1]) == ARGV[1] then
         return redis.call('DEL', KEYS[1])
@@ -2183,14 +2183,14 @@ async def release_lock(redis: Redis, key: str, token: str) -> None:
 
 **Pessimistic vs Optimistic vs Idempotency keys:**
 
-| Паттерн | Когда |
+| Pattern | When |
 |---|---|
-| Pessimistic (`SELECT FOR UPDATE`) | Высокая частота конфликтов, короткие транзакции |
-| Optimistic (version column) | Редкие конфликты, не блокируем читателей |
-| Idempotency keys | Внешние API, безопасный re-try |
+| Pessimistic (`SELECT FOR UPDATE`) | High conflict frequency, short transactions |
+| Optimistic (version column) | Rare conflicts, don't block readers |
+| Idempotency keys | External APIs, safe re-try |
 
 ```python
-# Idempotency через ключ запроса
+# Idempotency via request key
 @router.post("/payments")
 async def create_payment(
     body: PaymentCreate,
@@ -2198,7 +2198,7 @@ async def create_payment(
     db: DbSession,
     redis: RedisDep,
 ) -> PaymentResponse:
-    """Если ключ уже обработан — возвращаем предыдущий результат."""
+    """If key already processed — return previous result."""
     cache_key = f"idempotency:payment:{idempotency_key}"
     if cached := await redis.get(cache_key):
         return PaymentResponse.model_validate_json(cached)
@@ -2211,15 +2211,15 @@ async def create_payment(
 
 ## 51. Context Propagation — contextvars
 
-`threading.local` не работает в async — один thread обрабатывает много coroutine'ов.
+`threading.local` does not work in async — one thread handles many coroutines.
 
 ```python
-# BAD: threading.local — все coro видят одно значение
+# BAD: threading.local — all coroutines see the same value
 import threading
 _request_context = threading.local()
 
 
-# GOOD: contextvars — propagates через await, изолирован per-task
+# GOOD: contextvars — propagates through await, isolated per-task
 from contextvars import ContextVar
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
@@ -2227,7 +2227,7 @@ user_id_var: ContextVar[int | None] = ContextVar("user_id", default=None)
 tenant_id_var: ContextVar[str | None] = ContextVar("tenant_id", default=None)
 
 
-# Middleware устанавливает request_id для всего запроса
+# Middleware sets request_id for the entire request
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
@@ -2240,21 +2240,21 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             request_id_var.reset(token)
 
 
-# structlog с contextvars — автоматически в каждой записи
+# structlog with contextvars — automatically added to every log entry
 import structlog
 
 structlog.configure(
     processors=[
-        structlog.contextvars.merge_contextvars,  # подтягивает все ContextVar
+        structlog.contextvars.merge_contextvars,  # pulls in all ContextVars
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.JSONRenderer(),
     ],
-    cache_logger_on_first_use=True,  # существенный perf bonus
+    cache_logger_on_first_use=True,  # significant perf bonus
 )
 
 
-# В middleware биндим контекст
+# Bind context in middleware
 async def dispatch(self, request: Request, call_next):
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(
@@ -2262,19 +2262,19 @@ async def dispatch(self, request: Request, call_next):
         path=request.url.path,
         method=request.method,
     )
-    # все логи в этом запросе автоматически получат request_id, path, method
+    # all logs in this request automatically get request_id, path, method
 ```
 
-## 52. Logging без блокировок
+## 52. Logging without blocking
 
-`FileHandler.emit()` делает sync `write()`. На загруженных дисках/сетевых fs — блок event loop.
+`FileHandler.emit()` makes a sync `write()`. On busy disks / network filesystems — blocks the event loop.
 
 ```python
-# BAD: запись в файл блокирует loop
+# BAD: writing to file blocks the loop
 logging.basicConfig(handlers=[logging.FileHandler("app.log")])
 
 
-# GOOD: QueueHandler + QueueListener — асинхронная запись
+# GOOD: QueueHandler + QueueListener — asynchronous writing
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 
@@ -2296,26 +2296,26 @@ root_logger = logging.getLogger()
 root_logger.addHandler(queue_handler)
 ```
 
-⚠️ В Docker/k8s **stdout** обычно достаточно. FileHandler не нужен — оркестратор разруливает.
+⚠️ In Docker/k8s **stdout** is usually sufficient. FileHandler is not needed — the orchestrator handles it.
 
 ## 53. Streaming Responses
 
-`return huge_dict` загрузит 1GB в память. Для больших данных — `StreamingResponse`.
+`return huge_dict` loads 1GB into memory. For large data — use `StreamingResponse`.
 
 ```python
-# BAD: материализуем 1млн записей в память
+# BAD: materialises 1M records in memory
 @router.get("/export/orders.csv")
 async def export_csv(db: DbSession) -> Response:
-    orders = await db.execute(select(Order))  # ❌ всё в память
+    orders = await db.execute(select(Order))  # ❌ everything in memory
     csv_text = render_csv(orders.scalars().all())
     return Response(csv_text, media_type="text/csv")
 
 
-# GOOD: streaming через async generator
+# GOOD: streaming via async generator
 from fastapi.responses import StreamingResponse
 
 async def stream_orders_csv(db: AsyncSession) -> AsyncIterator[str]:
-    """Стримит CSV строки по мере получения из БД."""
+    """Streams CSV rows as they are fetched from the DB."""
     yield "id,customer_id,total,created_at\n"
 
     stmt = select(Order).execution_options(yield_per=1000)
@@ -2332,12 +2332,12 @@ async def export_csv(db: DbSession) -> StreamingResponse:
     )
 
 
-# Upload больших файлов — чанками
+# Upload large files — in chunks
 import aiofiles
 
 @router.post("/upload")
 async def upload(file: UploadFile) -> dict:
-    """Сохраняем файл потоково."""
+    """Save file in streaming fashion."""
     target = Path(f"/uploads/{file.filename}")
     async with aiofiles.open(target, "wb") as out:
         while chunk := await file.read(64 * 1024):  # 64KB
@@ -2347,11 +2347,11 @@ async def upload(file: UploadFile) -> dict:
 
 ## 54. Workers & Deployment
 
-| Профиль | Workers | Reasoning |
+| Profile | Workers | Reasoning |
 |---|---|---|
-| **I/O-bound** (90% async) | 1-2 на pod, scale via replicas | Async масштабируется внутри одного worker'а |
-| **Mix sync/async** | `cpu_count` | Sync endpoints в threadpool блокируют worker |
-| **CPU-bound** | `cpu_count + 1` | Используй ProcessPool внутри или Celery |
+| **I/O-bound** (90% async) | 1-2 per pod, scale via replicas | Async scales within a single worker |
+| **Mix sync/async** | `cpu_count` | Sync endpoints in threadpool block the worker |
+| **CPU-bound** | `cpu_count + 1` | Use ProcessPool internally or Celery |
 
 ```bash
 # Production: gunicorn + uvicorn workers
@@ -2377,12 +2377,12 @@ uvicorn myservice.api:app \
     --timeout-keep-alive 5
 ```
 
-`--max-requests` обязателен — пересоздавать worker после N запросов чтобы избежать утечек памяти.
+`--max-requests` is mandatory — recreate the worker after N requests to avoid memory leaks.
 
-**Graceful shutdown** — при `SIGTERM`:
-1. Перестать принимать новые соединения.
-2. Дождаться in-flight запросов (с лимитом).
-3. Закрыть pools в обратном порядке.
+**Graceful shutdown** — on `SIGTERM`:
+1. Stop accepting new connections.
+2. Wait for in-flight requests (with a limit).
+3. Close pools in reverse order.
 
 ```python
 @asynccontextmanager
@@ -2395,29 +2395,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # Shutdown — обратный порядок
+    # Shutdown — reverse order
     logger.info("app_shutting_down")
-    await app.state.tasks.shutdown(timeout=30)        # 1. дождаться фоновых
-    await app.state.http_client.aclose()              # 2. закрыть HTTP
-    await app.state.db_pool.close()                   # 3. закрыть БД
+    await app.state.tasks.shutdown(timeout=30)        # 1. wait for background tasks
+    await app.state.http_client.aclose()              # 2. close HTTP
+    await app.state.db_pool.close()                   # 3. close DB
     logger.info("app_stopped")
 ```
 
-⚠️ В Kubernetes: `terminationGracePeriodSeconds` должен быть > graceful timeout.
+⚠️ In Kubernetes: `terminationGracePeriodSeconds` must be > graceful timeout.
 
-**Health checks правильно:**
+**Health checks done right:**
 ```python
 @router.get("/health/liveness", include_in_schema=False)
 async def liveness() -> dict[str, str]:
-    """Жив ли процесс. БЕЗ проверок зависимостей.
-    Если упадёт — k8s перезапустит pod."""
+    """Is the process alive. WITHOUT dependency checks.
+    If it fails — k8s restarts the pod."""
     return {"status": "ok"}
 
 
 @router.get("/health/readiness", include_in_schema=False)
 async def readiness(db: DbSession, redis: RedisDep) -> dict[str, object]:
-    """Готов ли принимать трафик. Проверяем зависимости.
-    Если упадёт — k8s выведет pod из service endpoints."""
+    """Ready to accept traffic. Checks dependencies.
+    If it fails — k8s removes pod from service endpoints."""
     checks: dict[str, str] = {}
     overall_ok = True
 
@@ -2442,18 +2442,18 @@ async def readiness(db: DbSession, redis: RedisDep) -> dict[str, object]:
     return {"status": "ok", "checks": checks}
 ```
 
-⚠️ **Не делай тяжёлые проверки в liveness** — каскадные restart'ы при флапе зависимости.
+⚠️ **Do not make heavy checks in liveness** — causes cascading restarts when a dependency flaps.
 
 ## 55. Backpressure & Resilience
 
 ```bash
-# Concurrency limit на сервер
+# Concurrency limit for the server
 uvicorn myservice.api:app --limit-concurrency 1000
-# При >1000 одновременных соединений — отвергает с 503
-# Лучше быстрый отказ, чем медленный треш
+# With >1000 concurrent connections — rejects with 503
+# Fast failure is better than slow thrash
 ```
 
-**Rate limiting** через fastapi-limiter:
+**Rate limiting** via fastapi-limiter:
 ```python
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
@@ -2473,7 +2473,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 async def expensive_op() -> dict: ...
 ```
 
-**Circuit breaker** для нестабильных upstream:
+**Circuit breaker** for unstable upstreams:
 ```python
 # pip install pybreaker
 import pybreaker
@@ -2485,13 +2485,13 @@ payment_breaker = pybreaker.CircuitBreaker(
 
 @payment_breaker
 async def call_payment_gateway(amount: Decimal) -> PaymentResult:
-    """После 5 фейлов подряд breaker откроется на 30s — быстрые отказы."""
+    """After 5 consecutive failures the breaker opens for 30s — fast rejections."""
     return await payment_client.charge(amount)
 ```
 
-Альтернативы для async: `aiocircuitbreaker`, `purgatory`.
+Async alternatives: `aiocircuitbreaker`, `purgatory`.
 
-**Retries с экспоненциальным backoff:**
+**Retries with exponential backoff:**
 ```python
 # pip install tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -2511,26 +2511,26 @@ async def fetch_with_retry(url: str) -> dict:
 ## 56. Anti-patterns Cheatsheet
 
 ```python
-# ─── Sync клиент в async ────────────────────────────────────────
+# ─── Sync client in async ───────────────────────────────────────
 # ❌ NEVER:
 async def handler():
-    response = requests.get(url)            # блок event loop
+    response = requests.get(url)            # blocks event loop
 
 # ✅ ALWAYS:
 async def handler(client: HttpClient):
     response = await client.get(url)
 
 
-# ─── Создание клиента в handler ─────────────────────────────────
+# ─── Creating client in handler ─────────────────────────────────
 # ❌ NEVER:
 async def handler():
-    async with httpx.AsyncClient() as c:    # новый pool каждый раз
+    async with httpx.AsyncClient() as c:    # new pool every time
         ...
 
-# ✅ ALWAYS: singleton через lifespan
+# ✅ ALWAYS: singleton via lifespan
 
 
-# ─── Запросы без таймаута ───────────────────────────────────────
+# ─── Requests without timeout ───────────────────────────────────
 # ❌ NEVER:
 async with httpx.AsyncClient() as c:
     await c.get(url)
@@ -2543,14 +2543,14 @@ async with httpx.AsyncClient(timeout=httpx.Timeout(30, connect=5)) as c:
 # ─── time.sleep ─────────────────────────────────────────────────
 # ❌ NEVER:
 async def retry():
-    time.sleep(1)                           # блок event loop
+    time.sleep(1)                           # blocks event loop
 
 # ✅ ALWAYS:
 async def retry():
     await asyncio.sleep(1)
 
 
-# ─── except Exception без re-raise CancelledError ────────────
+# ─── except Exception without re-raising CancelledError ──────
 # ❌ DANGEROUS:
 try:
     await long()
@@ -2566,7 +2566,7 @@ except Exception:
     handle()
 
 
-# ─── Lazy loading в async SQLAlchemy ────────────────────────────
+# ─── Lazy loading in async SQLAlchemy ───────────────────────────
 # ❌ NEVER:
 user = await session.get(User, uid)
 print(user.orders)                          # MissingGreenlet
@@ -2577,7 +2577,7 @@ user = await session.scalar(
 )
 
 
-# ─── threading.local в async ────────────────────────────────────
+# ─── threading.local in async ───────────────────────────────────
 # ❌ NEVER:
 _ctx = threading.local()
 _ctx.user = current_user
@@ -2587,35 +2587,35 @@ user_var: ContextVar[User] = ContextVar("user")
 user_var.set(current_user)
 
 
-# ─── fire-and-forget без удержания ссылки ───────────────────────
+# ─── fire-and-forget without holding reference ──────────────────
 # ❌ NEVER:
-asyncio.create_task(send_email())           # GC может убить
+asyncio.create_task(send_email())           # GC can kill it
 
-# ✅ ALWAYS: TaskManager с _tasks: set[Task]
+# ✅ ALWAYS: TaskManager with _tasks: set[Task]
 
 
-# ─── Глобальный mutable state без Lock ──────────────────────────
+# ─── Global mutable state without Lock ──────────────────────────
 # ❌ NEVER:
 _counter = 0
 async def inc():
     global _counter
-    _counter += 1                           # race между await
+    _counter += 1                           # race between awaits
 
-# ✅ ALWAYS: asyncio.Lock или Redis INCR
+# ✅ ALWAYS: asyncio.Lock or Redis INCR
 
 
 # ─── Unbounded gather ───────────────────────────────────────────
 # ❌ NEVER:
-await asyncio.gather(*(fetch(u) for u in 100_000_users))  # 100K сокетов
+await asyncio.gather(*(fetch(u) for u in 100_000_users))  # 100K sockets
 
-# ✅ ALWAYS: Semaphore или batch
+# ✅ ALWAYS: Semaphore or batch
 
 
-# ─── sync session в async endpoint ──────────────────────────────
+# ─── sync session in async endpoint ─────────────────────────────
 # ❌ NEVER:
 @router.get("/users")
 async def get_users(db: Session = Depends(get_sync_db)):
-    users = db.query(User).all()            # sync IO в async!
+    users = db.query(User).all()            # sync IO in async!
 
 # ✅ ALWAYS:
 async def get_users(db: AsyncSession = Depends(get_async_db)):
@@ -2623,13 +2623,13 @@ async def get_users(db: AsyncSession = Depends(get_async_db)):
     return result.scalars().all()
 
 
-# ─── BackgroundTasks для критичных операций ─────────────────────
+# ─── BackgroundTasks for critical operations ─────────────────────
 # ❌ NEVER:
 @router.post("/payment")
 async def pay(bg: BackgroundTasks):
-    bg.add_task(charge_card, ...)           # потеряется если pod упадёт
+    bg.add_task(charge_card, ...)           # lost if the pod dies
 
-# ✅ ALWAYS: Celery/Dramatiq/Arq с persistent queue
+# ✅ ALWAYS: Celery/Dramatiq/Arq with persistent queue
 ```
 
 <!-- /section:concurrency -->
@@ -2641,114 +2641,114 @@ async def pay(bg: BackgroundTasks):
 Before submitting Python code:
 
 **Project & Toolchain (rules 1–4):**
-- [ ] `src/` layout, `pyproject.toml` единый конфиг
+- [ ] `src/` layout, `pyproject.toml` single config
 - [ ] Ruff (`select = ["ALL"]`), Pyright `strict=true`
-- [ ] pre-commit гейт настроен
+- [ ] pre-commit gate configured
 
 **Type System (rules 5–10):**
-- [ ] `from __future__ import annotations` в каждом файле
-- [ ] Все функции/параметры/возвраты типизированы
-- [ ] Запрет `Any` — только с `# type: ignore[reason]`
-- [ ] `Final`, `Literal`, `NewType`, `Self`, `@override` где уместно
-- [ ] `Protocol` для DI, `ABC` только для template method
-- [ ] `assert_never` для exhaustive `match`
-- [ ] `TYPE_CHECKING` для разрыва циклов
+- [ ] `from __future__ import annotations` in every file
+- [ ] All functions/parameters/returns are typed
+- [ ] `Any` is forbidden — only with `# type: ignore[reason]`
+- [ ] `Final`, `Literal`, `NewType`, `Self`, `@override` where appropriate
+- [ ] `Protocol` for DI, `ABC` only for template method
+- [ ] `assert_never` for exhaustive `match`
+- [ ] `TYPE_CHECKING` for breaking import cycles
 
 **Data Modeling (rules 11–13):**
-- [ ] `@dataclass(frozen=True, slots=True, kw_only=True)` по умолчанию
-- [ ] Pydantic — на API границе, dataclass — внутри
-- [ ] StrEnum/IntEnum, никаких магических строк
+- [ ] `@dataclass(frozen=True, slots=True, kw_only=True)` by default
+- [ ] Pydantic — at API boundary, dataclass — internally
+- [ ] StrEnum/IntEnum, no magic strings
 
 **Errors (rules 14–18):**
-- [ ] Иерархия `AppError → DomainError/InfrastructureError → ...`
-- [ ] `raise ... from exc` всегда — сохраняем причину
-- [ ] `ExceptionGroup` для пачки ошибок (Python 3.11+)
-- [ ] Никаких `except:` без `raise` или явного восстановления
-- [ ] `assert` запрещён в production (только в тестах)
+- [ ] Hierarchy `AppError → DomainError/InfrastructureError → ...`
+- [ ] `raise ... from exc` always — preserve the cause
+- [ ] `ExceptionGroup` for a batch of errors (Python 3.11+)
+- [ ] No bare `except:` without `raise` or explicit recovery
+- [ ] `assert` is forbidden in production (tests only)
 
 **Logging & I/O (rules 19–22):**
-- [ ] `structlog` или stdlib `logging` с `%s` форматом
-- [ ] `print()` — только в CLI entry points
-- [ ] `pathlib.Path`, никогда `os.path`
-- [ ] `with` для всех ресурсов, кастомные через `@contextmanager`
+- [ ] `structlog` or stdlib `logging` with `%s` format
+- [ ] `print()` — only in CLI entry points
+- [ ] `pathlib.Path`, never `os.path`
+- [ ] `with` for all resources, custom ones via `@contextmanager`
 
 **Idioms (rules 23–26):**
-- [ ] Comprehensions один уровень, вложенные → функции
-- [ ] `match/case` для discriminated unions
-- [ ] `@cache`/`@lru_cache`/`@cached_property`/`@singledispatch` где уместно
-- [ ] `async` только для реального I/O, `gather`/`TaskGroup` для параллели
+- [ ] Comprehensions one level, nested → functions
+- [ ] `match/case` for discriminated unions
+- [ ] `@cache`/`@lru_cache`/`@cached_property`/`@singledispatch` where appropriate
+- [ ] `async` only for real I/O, `gather`/`TaskGroup` for parallelism
 
 **FastAPI (rules 27–35):**
-- [ ] APIRouter по доменам, `main.py` только сборка
+- [ ] APIRouter per domain, `main.py` assembly only
 - [ ] Pydantic v2: `field_validator`, `model_validator`, `computed_field`
-- [ ] `Depends()` + `Annotated` type aliases для DI
-- [ ] `response_model` и `status_code` явно
-- [ ] Глобальный `exception_handler` для единого формата
-- [ ] `lifespan` для startup/shutdown (НЕ `on_event`)
-- [ ] `BackgroundTasks` для лёгких фоновых, Celery — для тяжёлых
-- [ ] CORS/logging через middleware
-- [ ] `pydantic-settings` BaseSettings, не `os.getenv`
+- [ ] `Depends()` + `Annotated` type aliases for DI
+- [ ] `response_model` and `status_code` explicitly
+- [ ] Global `exception_handler` for unified error format
+- [ ] `lifespan` for startup/shutdown (NOT `on_event`)
+- [ ] `BackgroundTasks` for lightweight background tasks, Celery — for heavy ones
+- [ ] CORS/logging via middleware
+- [ ] `pydantic-settings` BaseSettings, not `os.getenv`
 
 **Async Concurrency (rules 36–56):**
 
 *Event loop integrity:*
-- [ ] В `async def` нет sync клиентов (`requests`, `psycopg2`, `boto3`, `redis-py` sync)
-- [ ] Sync библиотеки обёрнуты в `asyncio.to_thread()` или endpoint объявлен `def`
-- [ ] CPU-bound вынесен в ProcessPool / Celery
-- [ ] `time.sleep()` → `asyncio.sleep()` везде
-- [ ] uvloop включён в production
+- [ ] No sync clients (`requests`, `psycopg2`, `boto3`, `redis-py` sync) inside `async def`
+- [ ] Sync libraries wrapped in `asyncio.to_thread()` or endpoint declared `def`
+- [ ] CPU-bound offloaded to ProcessPool / Celery
+- [ ] `time.sleep()` → `asyncio.sleep()` everywhere
+- [ ] uvloop enabled in production
 
 *Clients & Pools:*
-- [ ] Все клиенты (httpx, db, redis) — singleton через `lifespan`
-- [ ] httpx.Limits настроены (max_connections, keepalive)
+- [ ] All clients (httpx, db, redis) — singleton via `lifespan`
+- [ ] httpx.Limits configured (max_connections, keepalive)
 - [ ] DB pool: `pool_size`, `max_overflow`, `pool_pre_ping=True`, `pool_recycle`
-- [ ] AnyIO threadpool увеличен если используются sync endpoints
+- [ ] AnyIO threadpool increased if sync endpoints are used
 
 *Timeouts:*
-- [ ] httpx.Timeout с разделением connect/read/write/pool
-- [ ] DB `command_timeout` или PG `statement_timeout`
-- [ ] `asyncio.timeout()` на критичные блоки
-- [ ] Endpoint budget < сумма внутренних таймаутов
+- [ ] httpx.Timeout with connect/read/write/pool breakdown
+- [ ] DB `command_timeout` or PG `statement_timeout`
+- [ ] `asyncio.timeout()` on critical blocks
+- [ ] Endpoint budget < sum of internal timeouts
 
 *Concurrency:*
-- [ ] `asyncio.gather` для независимых, `TaskGroup` для связанных
-- [ ] Semaphore для ограничения параллельных вызовов upstream
-- [ ] Fire-and-forget через TaskManager (с удержанием ссылок)
-- [ ] `asyncio.Lock` для критических секций in-memory state
-- [ ] Распределённые блокировки через Redis для multi-pod
+- [ ] `asyncio.gather` for independent tasks, `TaskGroup` for related
+- [ ] Semaphore to limit concurrent upstream calls
+- [ ] Fire-and-forget via TaskManager (with reference holding)
+- [ ] `asyncio.Lock` for critical sections of in-memory state
+- [ ] Distributed locks via Redis for multi-pod
 
 *Cancellation:*
-- [ ] `except asyncio.CancelledError: raise` явно
-- [ ] `try/finally` для cleanup
-- [ ] `asyncio.shield()` для атомарных операций
-- [ ] Никогда не глотать `CancelledError`
+- [ ] `except asyncio.CancelledError: raise` explicitly
+- [ ] `try/finally` for cleanup
+- [ ] `asyncio.shield()` for atomic operations
+- [ ] Never swallow `CancelledError`
 
 *Database:*
 - [ ] SQLAlchemy 2.x async + `expire_on_commit=False`
-- [ ] `selectinload`/`joinedload` вместо lazy loading
-- [ ] Транзакции через `session.begin()` контекст
-- [ ] Optimistic locking (version column) или idempotency keys
+- [ ] `selectinload`/`joinedload` instead of lazy loading
+- [ ] Transactions via `session.begin()` context
+- [ ] Optimistic locking (version column) or idempotency keys
 
 *Context & Logging:*
-- [ ] `contextvars` для request_id, user_id, tenant_id (НЕ `threading.local`)
-- [ ] `structlog.contextvars.merge_contextvars` в processors
-- [ ] QueueHandler если пишем в файл; stdout-only в Docker/k8s
+- [ ] `contextvars` for request_id, user_id, tenant_id (NOT `threading.local`)
+- [ ] `structlog.contextvars.merge_contextvars` in processors
+- [ ] QueueHandler when writing to file; stdout-only in Docker/k8s
 
 *Streaming:*
-- [ ] `StreamingResponse` для больших ответов
-- [ ] `UploadFile.read(chunk_size)` для больших uploads
-- [ ] `aiofiles` или `to_thread` для файлового I/O
+- [ ] `StreamingResponse` for large responses
+- [ ] `UploadFile.read(chunk_size)` for large uploads
+- [ ] `aiofiles` or `to_thread` for file I/O
 
 *Deployment:*
-- [ ] `--workers` подобраны под профиль (I/O = меньше, CPU = больше)
-- [ ] `--max-requests` для пересоздания worker'ов
-- [ ] Graceful shutdown через lifespan (закрытие pools в обратном порядке)
-- [ ] `terminationGracePeriodSeconds` в k8s > graceful timeout
-- [ ] `/health/liveness` без зависимостей, `/health/readiness` с проверками
-- [ ] `--limit-concurrency` для backpressure
+- [ ] `--workers` tuned to profile (I/O = fewer, CPU = more)
+- [ ] `--max-requests` for worker recreation
+- [ ] Graceful shutdown via lifespan (closing pools in reverse order)
+- [ ] `terminationGracePeriodSeconds` in k8s > graceful timeout
+- [ ] `/health/liveness` without dependencies, `/health/readiness` with checks
+- [ ] `--limit-concurrency` for backpressure
 
 *Resilience:*
-- [ ] Rate limiting на тяжёлые эндпоинты (fastapi-limiter)
-- [ ] Circuit breaker для нестабильных upstream
-- [ ] Retries с экспоненциальным backoff (tenacity)
-- [ ] Idempotency keys на write эндпоинты
+- [ ] Rate limiting on heavy endpoints (fastapi-limiter)
+- [ ] Circuit breaker for unstable upstreams
+- [ ] Retries with exponential backoff (tenacity)
+- [ ] Idempotency keys on write endpoints

@@ -1,5 +1,5 @@
 ---
-description: Test scope planning. Из increment.md (intent — первичный вход) строит test/test-model.md (через test-analyst + test-explorer) и test/test-plan.md с autotest-задачами по слоям (integration/sys/e2e/ui/load), валидирует (validate_plan --scope test) и прогоняет plan-reviewer. Идёт полностью параллельно с Dev от t=0, независимо; specs/*.md — опциональная сверка, не контракт. UNIT — не здесь.
+description: Test scope planning. Builds test/test-model.md from increment.md (intent — primary input) via test-analyst + test-explorer, and test/test-plan.md with autotest tasks per layer (integration/sys/e2e/ui/load), validates (validate_plan --scope test) and runs plan-reviewer. Runs fully in parallel with Dev from t=0, independently; specs/*.md — optional cross-reference, not a contract. UNIT — not here.
 argument-hint: "[orchestration prompt]"
 model: opus
 disallowed-tools: EnterPlanMode

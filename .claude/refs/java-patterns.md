@@ -69,7 +69,7 @@ public Order createOrder(String userId, List<Item> items) {
     return order;
 }
 
-// BAD: Ручные if/throw
+// BAD: Manual if/throw
 public Order createOrder(String userId, List<Item> items) {
     if (userId == null || userId.isBlank()) {
         throw new IllegalArgumentException("userId cannot be blank");
@@ -80,7 +80,7 @@ public Order createOrder(String userId, List<Item> items) {
     return Order.builder().build();
 }
 
-// GOOD: Spring Assert — чисто и читаемо
+// GOOD: Spring Assert — clean and readable
 import org.springframework.util.Assert;
 
 public Order createOrder(final String userId, final List<Item> items) {
@@ -94,7 +94,7 @@ public Order createOrder(final String userId, final List<Item> items) {
 }
 ```
 
-**Spring Assert методы:**
+**Spring Assert methods:**
 ```java
 Assert.notNull(obj, "obj cannot be null");           // != null
 Assert.hasText(str, "str cannot be blank");          // not null, not empty, not whitespace
@@ -122,19 +122,19 @@ List<OrderItem> items = getItems();
 
 ## 4.1. Always `final` — Immutable by Default
 
-Если переменная не переопределяется — она ДОЛЖНА быть `final`. Включая параметры методов.
+If a variable is not reassigned — it MUST be `final`. Including method parameters.
 
 ```java
-// BAD: Непонятно, меняется ли переменная ниже по коду
+// BAD: Unclear whether the variable is reassigned later in the code
 public String processOrder(Order order, String userId) {
     Order saved = orderRepository.save(order);
     String notification = buildNotification(saved);
     notificationService.send(notification);
     return saved.getId();
-    // А вдруг где-то ниже: order = modifyOrder(order); ???
+    // What if somewhere below: order = modifyOrder(order); ???
 }
 
-// GOOD: final явно показывает — переменная не меняется
+// GOOD: final clearly shows — the variable does not change
 public String processOrder(final Order order, final String userId) {
     final Order saved = orderRepository.save(order);
     final String notification = buildNotification(saved);
@@ -142,65 +142,65 @@ public String processOrder(final Order order, final String userId) {
     return saved.getId();
 }
 
-// GOOD: Lambda параметры — effectively final (компилятор проверит)
+// GOOD: Lambda parameters — effectively final (compiler will verify)
 orders.stream()
     .filter(order -> order.isValid())  // order effectively final
     .map(order -> order.getId())
     .toList();
 ```
 
-**Правило:** Всё `final` по умолчанию. Если кажется что нужен не-final — рефактори код.
+**Rule:** Everything `final` by default. If you think you need a non-final — refactor the code.
 
 ```java
-// BAD: Мутабельные переменные, break, обращение к глобальной константе
+// BAD: Mutable variables, break, access to global constant
 public void processWithRetry(final Request request) {
-    Response response = null;  // ❌ Мутабельная
-    int attempt = 0;           // ❌ Мутабельная
+    Response response = null;  // ❌ Mutable
+    int attempt = 0;           // ❌ Mutable
 
-    while (attempt < MAX_RETRY_ATTEMPTS) {  // ❌ Обращение к внешней переменной
+    while (attempt < MAX_RETRY_ATTEMPTS) {  // ❌ Access to outer variable
         attempt++;
         response = client.send(request);
         if (response.isSuccess()) {
-            break;  // ❌ break — плохо читается
+            break;  // ❌ break — hard to read
         }
     }
     handleResponse(response);
 }
 
-// GOOD: Метод просто возвращает результат, не обрабатывает
-/** Выполняет запрос с повторами. */
+// GOOD: Method simply returns a result without handling it
+/** Executes the request with retries. */
 public Optional<Response> executeWithRetry(final Request request, final int maxRetries) {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
         final Response response = client.send(request);
         if (response.isSuccess()) {
             return Optional.of(response);
         }
-        log.warn("Попытка {} из {} не удалась", attempt, maxRetries);
+        log.warn("Attempt {} of {} failed", attempt, maxRetries);
     }
     return Optional.empty();
 }
 
-// Вызывающий код сам решает что делать с результатом:
+// Calling code decides what to do with the result:
 final Optional<Response> response = service.executeWithRetry(request, 3);
 if (response.isEmpty()) {
-    throw new RetryExhaustedException("Не удалось выполнить запрос");
+    throw new RetryExhaustedException("Failed to execute request");
 }
 processResponse(response.get());
 ```
 
-**Параметры методов — ВСЕГДА final:**
+**Method parameters — ALWAYS final:**
 ```java
-// BAD: Параметр можно случайно переопределить
+// BAD: Parameter can be accidentally reassigned
 public void process(Order order) {
-    order = enrichOrder(order);  // Опасно! Изменили входной параметр
+    order = enrichOrder(order);  // Dangerous! Modified the input parameter
     save(order);
 }
 
-// GOOD: Компилятор не даст переопределить
+// GOOD: Compiler prevents reassignment
 public void process(final Order order) {
     order = enrichOrder(order);  // ❌ Compilation error!
 
-    final Order enrichedOrder = enrichOrder(order);  // ✅ Новая переменная
+    final Order enrichedOrder = enrichOrder(order);  // ✅ New variable
     save(enrichedOrder);
 }
 ```
@@ -242,15 +242,15 @@ public class User {
 
 ## 6. Comments: Concise & Purposeful
 
-No essays. State: WHY, WHERE used, WHAT for. **Javadoc можно на русском.**
+No essays. State: WHY, WHERE used, WHAT for. **Javadoc should be written in English.**
 
-**Комментарии обязательны для:**
-- Классов
-- Публичных методов
-- **Всех полей класса** (включая private)
+**Comments are required for:**
+- Classes
+- Public methods
+- **All class fields** (including private)
 
 ```java
-// BAD: Портянка
+// BAD: Wall of text
 /**
  * This method is responsible for processing the user data that comes
  * from the external API. It was created because we needed to handle
@@ -258,7 +258,7 @@ No essays. State: WHY, WHERE used, WHAT for. **Javadoc можно на русс�
  */
 public User processUser(UserDTO dto) { ... }
 
-// BAD: Поля без комментариев
+// BAD: Fields without comments
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -267,52 +267,52 @@ public class OrderService {
     private final MeterRegistry meterRegistry;
 }
 
-// GOOD: Кратко и по делу (русский OK)
-/** Преобразует UserDTO из внешнего API в доменную сущность User. */
+// GOOD: Concise and to the point
+/** Converts UserDTO from an external API into the domain entity User. */
 public User processUser(UserDTO dto) { ... }
 
 /**
- * Сервис обработки заказов.
- * Используется в OrderController для REST API.
+ * Order processing service.
+ * Used in OrderController for the REST API.
  */
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
-    /** Репозиторий для работы с заказами в БД. */
+    /** Repository for order persistence. */
     private final OrderRepository orderRepository;
 
-    /** Сервис отправки уведомлений (email, push). */
+    /** Notification service (email, push). */
     private final NotificationService notificationService;
 
-    /** Метрики для мониторинга (Prometheus/Grafana). */
+    /** Metrics for monitoring (Prometheus/Grafana). */
     private final MeterRegistry meterRegistry;
 
-    /** Максимальное количество попыток обработки заказа. */
+    /** Maximum number of order processing attempts. */
     private static final int MAX_RETRY_ATTEMPTS = 3;
 
-    /** Задержка между попытками. */
+    /** Delay between attempts. */
     private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
 }
 ```
 
-**Для Lombok @Data/@Value классов — тоже:**
+**For Lombok @Data/@Value classes — same rules apply:**
 ```java
-/** Данные пользователя для REST API. */
+/** User data for the REST API. */
 @Data
 @Builder
 public class UserDto {
 
-    /** Уникальный идентификатор пользователя (UUID). */
+    /** Unique user identifier (UUID). */
     private String id;
 
-    /** Email для авторизации и уведомлений. */
+    /** Email for authentication and notifications. */
     private String email;
 
-    /** Отображаемое имя в интерфейсе. */
+    /** Display name in the UI. */
     private String displayName;
 
-    /** Роли пользователя для RBAC. */
+    /** User roles for RBAC. */
     private List<String> roles;
 }
 ```
@@ -430,18 +430,18 @@ Grep("@RestController", type="java")
 
 ## 9. Records — Immutable Data Classes
 
-Используй records для DTO, value objects. Заменяет Lombok @Value.
+Use records for DTOs and value objects. Replaces Lombok @Value.
 
 ```java
-// GOOD: Record для DTO
-/** Данные заказа для REST API. */
+// GOOD: Record for DTO
+/** Order data for the REST API. */
 public record OrderDto(
     String id,
     String customerId,
     List<ItemDto> items,
     BigDecimal total
 ) {
-    // Compact constructor для валидации (fail-fast!)
+    // Compact constructor for validation (fail-fast!)
     public OrderDto {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("id cannot be blank");
@@ -452,20 +452,20 @@ public record OrderDto(
     }
 }
 
-// Использование:
+// Usage:
 OrderDto order = new OrderDto("123", "customer-1", items, total);
-String id = order.id();  // Accessor без get-prefix
+String id = order.id();  // Accessor without get-prefix
 ```
 
-## 10. Pattern Matching для instanceof
+## 10. Pattern Matching for instanceof
 
-Убирает явный cast после instanceof.
+Eliminates explicit cast after instanceof.
 
 ```java
-// BAD: Старый стиль с cast
+// BAD: Old style with cast
 public String describe(Object obj) {
     if (obj instanceof String) {
-        String str = (String) obj;  // Лишний cast
+        String str = (String) obj;  // Redundant cast
         return "String length: " + str.length();
     }
     return "Unknown";
@@ -485,10 +485,10 @@ public String describe(Object obj) {
 
 ## 11. Switch Expressions
 
-Expression вместо statement. Возвращает значение.
+Expression instead of statement. Returns a value.
 
 ```java
-// BAD: Switch statement с break
+// BAD: Switch statement with break
 public String getDayType(DayOfWeek day) {
     String result;
     switch (day) {
@@ -497,14 +497,14 @@ public String getDayType(DayOfWeek day) {
         case WEDNESDAY:
         case THURSDAY:
         case FRIDAY:
-            result = "Рабочий день";
+            result = "Workday";
             break;
         case SATURDAY:
         case SUNDAY:
-            result = "Выходной";
+            result = "Weekend";
             break;
         default:
-            result = "Неизвестно";
+            result = "Unknown";
     }
     return result;
 }
@@ -512,18 +512,18 @@ public String getDayType(DayOfWeek day) {
 // GOOD: Switch expression (Java 14+)
 public String getDayType(DayOfWeek day) {
     return switch (day) {
-        case MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY -> "Рабочий день";
-        case SATURDAY, SUNDAY -> "Выходной";
-    };  // Компилятор проверит exhaustiveness для enum!
+        case MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY -> "Workday";
+        case SATURDAY, SUNDAY -> "Weekend";
+    };  // Compiler checks exhaustiveness for enums!
 }
 ```
 
 ## 12. Text Blocks
 
-Для многострочных строк: SQL, JSON, YAML.
+For multiline strings: SQL, JSON, YAML.
 
 ```java
-// BAD: Конкатенация
+// BAD: String concatenation
 String sql = "SELECT u.id, u.name " +
     "FROM users u " +
     "WHERE u.status = 'ACTIVE' " +
@@ -551,14 +551,14 @@ String json = """
 
 <!-- section:errors -->
 
-## 13. Обработка ошибок в Spring Boot
+## 13. Error Handling in Spring Boot
 
-**Sealed classes / Result pattern НЕ нужны.** Spring Boot обрабатывает исключения автоматически.
+**Sealed classes / Result pattern are NOT needed.** Spring Boot handles exceptions automatically.
 
-### Кастомные исключения с `@ResponseStatus`:
+### Custom exceptions with `@ResponseStatus`:
 
 ```java
-/** Сущность не найдена → 404. */
+/** Entity not found → 404. */
 @ResponseStatus(HttpStatus.NOT_FOUND)
 public class NotFoundException extends RuntimeException {
     public NotFoundException(final String message) {
@@ -566,7 +566,7 @@ public class NotFoundException extends RuntimeException {
     }
 }
 
-/** Конфликт бизнес-логики → 409. */
+/** Business logic conflict → 409. */
 @ResponseStatus(HttpStatus.CONFLICT)
 public class ConflictException extends RuntimeException {
     public ConflictException(final String message) {
@@ -575,23 +575,23 @@ public class ConflictException extends RuntimeException {
 }
 ```
 
-### `@ControllerAdvice` для глобальной обработки:
+### `@ControllerAdvice` for global handling:
 
 ```java
-/** Глобальный обработчик исключений. */
+/** Global exception handler. */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /** Assert.xxx() бросает IllegalArgumentException → 400. */
+    /** Assert.xxx() throws IllegalArgumentException → 400. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(final IllegalArgumentException e) {
-        log.warn("Ошибка валидации: {}", e.getMessage());
+        log.warn("Validation error: {}", e.getMessage());
         return ResponseEntity.badRequest()
             .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage()));
     }
 
-    /** Bean Validation ошибки → 400. */
+    /** Bean Validation errors → 400. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(final MethodArgumentNotValidException e) {
         final String message = e.getBindingResult().getFieldErrors().stream()
@@ -602,27 +602,27 @@ public class GlobalExceptionHandler {
     }
 }
 
-/** Ответ с ошибкой. */
+/** Error response. */
 public record ErrorResponse(String code, String message) {}
 ```
 
-### Сервис — просто бросает исключения:
+### Service — simply throws exceptions:
 
 ```java
-/** Находит заказ по ID. */
+/** Finds an order by ID. */
 public Order findById(final String id) {
-    Assert.hasText(id, "id cannot be blank");  // → 400 через @ControllerAdvice
+    Assert.hasText(id, "id cannot be blank");  // → 400 via @ControllerAdvice
 
     return orderRepository.findById(id)
-        .orElseThrow(() -> new NotFoundException("Заказ не найден: " + id));  // → 404
+        .orElseThrow(() -> new NotFoundException("Order not found: " + id));  // → 404
 }
 
-/** Отменяет заказ. */
+/** Cancels an order. */
 public Order cancel(final String id) {
     final Order order = findById(id);
 
     if (order.getStatus() == OrderStatus.SHIPPED) {
-        throw new ConflictException("Нельзя отменить отправленный заказ");  // → 409
+        throw new ConflictException("Cannot cancel a shipped order");  // → 409
     }
 
     order.setStatus(OrderStatus.CANCELLED);
@@ -630,12 +630,12 @@ public Order cancel(final String id) {
 }
 ```
 
-### Контроллер — чистый, без try/catch:
+### Controller — clean, without try/catch:
 
 ```java
 @PostMapping
 public Order create(@Valid @RequestBody final OrderDto dto) {
-    return orderService.createOrder(dto);  // @Valid → 400 если невалидно
+    return orderService.createOrder(dto);  // @Valid → 400 if invalid
 }
 
 @GetMapping("/{id}")
@@ -650,7 +650,7 @@ public Order getById(@PathVariable final String id) {
 
 ## 14. Named Constants
 
-Никаких magic numbers/strings.
+No magic numbers/strings.
 
 ```java
 // BAD: Magic values
@@ -672,10 +672,10 @@ if (STATUS_ACTIVE.equals(status)) { ... }  // null-safe!
 
 ## 15. Try-with-resources
 
-Автоматическое закрытие ресурсов. Всегда использовать для I/O.
+Automatic resource closing. Always use for I/O.
 
 ```java
-// BAD: Ручное закрытие
+// BAD: Manual closing
 public List<String> readLines(Path path) {
     BufferedReader reader = null;
     try {
@@ -683,7 +683,7 @@ public List<String> readLines(Path path) {
         return reader.lines().toList();
     } finally {
         if (reader != null) {
-            reader.close();  // Может выбросить exception!
+            reader.close();  // Can throw an exception!
         }
     }
 }
@@ -695,7 +695,7 @@ public List<String> readLines(Path path) throws IOException {
     }
 }
 
-// Несколько ресурсов
+// Multiple resources
 public void copyData(Path source, Path target) throws IOException {
     try (InputStream in = Files.newInputStream(source);
          OutputStream out = Files.newOutputStream(target)) {
@@ -710,45 +710,45 @@ public void copyData(Path source, Path target) throws IOException {
 
 <!-- section:java21 -->
 
-# Java 21+ Features (⚠️ Требует Java 21)
+# Java 21+ Features (⚠️ Requires Java 21)
 
-## 16. Pattern Matching в Switch ⚠️ Java 21
+## 16. Pattern Matching in Switch ⚠️ Java 21
 
-Полноценный pattern matching с exhaustiveness check.
+Full pattern matching with exhaustiveness check.
 
 ```java
 // Java 21: Pattern matching + record patterns
 public String handleResult(Result<Order> result) {
     return switch (result) {
-        case Success<Order>(Order order) -> "Заказ создан: " + order.id();
+        case Success<Order>(Order order) -> "Order created: " + order.id();
         case Failure<Order>(String msg, Throwable cause) -> {
-            log.error("Ошибка: {}", msg, cause);
-            yield "Ошибка: " + msg;
+            log.error("Error: {}", msg, cause);
+            yield "Error: " + msg;
         }
-    };  // Компилятор проверит ВСЕ cases!
+    };  // Compiler checks ALL cases!
 }
 
-// Guard clauses в switch
+// Guard clauses in switch
 public String describeNumber(Object obj) {
     return switch (obj) {
-        case Integer i when i > 0 -> "Положительное: " + i;
-        case Integer i when i < 0 -> "Отрицательное: " + i;
-        case Integer i -> "Ноль";
+        case Integer i when i > 0 -> "Positive: " + i;
+        case Integer i when i < 0 -> "Negative: " + i;
+        case Integer i -> "Zero";
         case null -> "null";
-        default -> "Не число";
+        default -> "Not a number";
     };
 }
 ```
 
 ## 17. Virtual Threads ⚠️ Java 21
 
-Легковесные потоки для I/O-bound задач.
+Lightweight threads for I/O-bound tasks.
 
 ```java
 // Spring Boot 3.2+: application.yml
 // spring.threads.virtual.enabled: true
 
-// Программно
+// Programmatic usage
 ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
 List<CompletableFuture<Response>> futures = requests.stream()
@@ -765,10 +765,10 @@ List<Response> responses = futures.stream()
 
 ## 18. Sequenced Collections ⚠️ Java 21
 
-Единый API для first/last элементов.
+Unified API for first/last elements.
 
 ```java
-// Java 21: Новые методы для всех коллекций
+// Java 21: New methods for all collections
 List<String> list = new ArrayList<>(List.of("a", "b", "c"));
 
 String first = list.getFirst();      // "a"
@@ -776,7 +776,7 @@ String last = list.getLast();        // "c"
 list.addFirst("start");              // ["start", "a", "b", "c"]
 list.addLast("end");                 // ["start", "a", "b", "c", "end"]
 
-List<String> reversed = list.reversed();  // View, не копия
+List<String> reversed = list.reversed();  // View, not a copy
 ```
 
 <!-- /section:java21 -->
@@ -787,27 +787,27 @@ List<String> reversed = list.reversed();  // View, не копия
 
 Before submitting Java code:
 
-**Обязательно (все версии):**
+**Required (all versions):**
 - [ ] No more than 1 nesting level per method
 - [ ] Each method does ONE thing
-- [ ] Fail-fast: Spring Assert на входе метода
-- [ ] No `var` - explicit types everywhere
-- [ ] `final` everywhere - переменные и параметры методов
+- [ ] Fail-fast: Spring Assert at method entry
+- [ ] No `var` — explicit types everywhere
+- [ ] `final` everywhere — variables and method parameters
 - [ ] Lombok annotations for boilerplate
-- [ ] Comments: классы, методы, ВСЕ поля (русский OK)
+- [ ] Comments: classes, methods, ALL fields (Russian OK)
 - [ ] No mutable static state
 - [ ] Named constants, no magic values
 - [ ] Try-with-resources for I/O
 - [ ] Searched existing patterns with Serena/Grep
 
 **Java 17+:**
-- [ ] Records for DTOs и value objects
-- [ ] Pattern matching для instanceof
-- [ ] Switch expressions (без pattern matching)
-- [ ] Text blocks для SQL/JSON
+- [ ] Records for DTOs and value objects
+- [ ] Pattern matching for instanceof
+- [ ] Switch expressions (no pattern matching)
+- [ ] Text blocks for SQL/JSON
 - [ ] Spring Boot error handling: @ResponseStatus + @ControllerAdvice
 
-**Java 21+ (если JAVA_VERSION >= 21):**
-- [ ] Pattern matching в switch
-- [ ] Virtual threads для I/O-bound
+**Java 21+ (if JAVA_VERSION >= 21):**
+- [ ] Pattern matching in switch
+- [ ] Virtual threads for I/O-bound
 - [ ] Sequenced collections API

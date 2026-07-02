@@ -1,25 +1,25 @@
-# ms-platform — Спецификация агентов, команд и хуков
+# ms-platform — Agent, Command, and Hook Specification
 
-**Статус:** v2, переписано 2026-06-11 после pivot на Claude Code backend.
-**Парные документы:** [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md), [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md), [`PIVOT.md`](./PIVOT.md).
+**Status:** v2, rewritten 2026-06-11 after pivot to Claude Code backend.
+**Paired documents:** [`ARCHITECTURE_PROPOSAL.md`](./ARCHITECTURE_PROPOSAL.md), [`IMPLEMENTATION_ROADMAP.md`](./IMPLEMENTATION_ROADMAP.md), [`PIVOT.md`](./PIVOT.md).
 
-> Предыдущая версия документа описывала агентов в собственном YAML-формате под Spring/JGit-платформу. Она устарела. См. `PIVOT.md`.
+> The previous version of this document described agents in a custom YAML format for a Spring/JGit platform. It is obsolete. See `PIVOT.md`.
 
 ---
 
-## 0. Формат
+## 0. Format
 
-Каждый агент Claude Code — это **markdown с YAML-frontmatter** в `.claude/agents/<name>.md`:
+Every Claude Code agent is a **markdown file with YAML frontmatter** located at `.claude/agents/<name>.md`:
 
 ```yaml
 ---
 name: agent-name
-description: однострочное назначение
+description: one-line purpose
 model: opus | sonnet | haiku
-color: cyan | red | yellow | …             # цвет в UI Claude Code
+color: cyan | red | yellow | …             # color in Claude Code UI
 tools: Write, Edit, Bash, Read, Glob, Grep, mcp__context7__*, mcp__serena__*, …
-disallowedTools: Write, Edit, NotebookEdit  # для read-only ревьюеров
-hooks:                                       # опционально — встроенные PostToolUse etc.
+disallowedTools: Write, Edit, NotebookEdit  # for read-only reviewers
+hooks:                                       # optional — built-in PostToolUse etc.
   PostToolUse:
     - matcher: "Write|Edit"
       hooks:
@@ -30,65 +30,65 @@ hooks:                                       # опционально — вст
 # Agent Name
 
 ## Purpose
-... одно-два предложения
+... one or two sentences
 
 ## Instructions
-... системный промпт
+... system prompt
 
 ## Workflow
-... пошаговое описание работы
+... step-by-step workflow description
 
 ## Report
-... формат вывода после завершения
+... output format after completion
 ```
 
-Этот же формат использует и upstream — мы расширяем его, не изобретая своего.
+The upstream uses the same format — we extend it without reinventing our own.
 
 ---
 
-## 1. Карта агентов
+## 1. Agent Map
 
-### Из upstream (используем без правок)
+### From upstream (used as-is)
 
-| Agent file | Модель | Назначение | Эквивалент в нашем дизайне |
+| Agent file | Model | Purpose | Equivalent in our design |
 |---|---|---|---|
-| `agents/team/builder.md` | opus | Универсальный исполнитель (Java/React/Python): пишет код и тесты по acceptance criteria одной задачи. Auto-loads refs по стеку. | dev + tester (объединены) |
-| `agents/team/plan-reviewer.md` | opus, read-only | Критический ревью плана перед execution по 10 критериям (Problem Alignment, Surgical Scope, Test Realism, …). | plan-reviewer |
-| `agents/team/validator.md` | sonnet, read-only | Acceptance-валидация задачи: запускает declared runner'ы, scope-check через `check_diff_scope.py`. | acceptance-validator |
-| `agents/context-router.md` | (load-on-demand) | По keyword'ам из задачи выбирает релевантные секции refs и загружает их. | role of explorer |
-| `agents/meta-agent.md` | — | Мета-агент (вспомогательный, документация upstream). | — |
+| `agents/team/builder.md` | opus | Universal executor (Java/React/Python): writes code and tests per acceptance criteria for a single task. Auto-loads refs by stack. | dev + tester (merged) |
+| `agents/team/plan-reviewer.md` | opus, read-only | Critical review of the plan before execution across 10 criteria (Problem Alignment, Surgical Scope, Test Realism, …). | plan-reviewer |
+| `agents/team/validator.md` | sonnet, read-only | Acceptance validation of a task: runs declared runners, scope-check via `check_diff_scope.py`. | acceptance-validator |
+| `agents/context-router.md` | (load-on-demand) | Selects relevant ref sections by task keywords and loads them. | role of explorer |
+| `agents/meta-agent.md` | — | Meta-agent (auxiliary, upstream documentation). | — |
 
-### Добавляем мы
+### Added by us
 
-| Agent file | Модель | Назначение | Соответствие |
+| Agent file | Model | Purpose | Correspondence |
 |---|---|---|---|
-| `agents/business-analyst.md` | sonnet | Chat-interview с заказчиком, формирует `analytic/increment.md`. | business-analyst |
-| `agents/analytic-reviewer.md` | opus, read-only | Семантический ревью `increment.md` против исходной задачи. | analytic-reviewer |
-| `agents/analyzer.md` | opus | Анализ упавших тестов → verdict `bug_in_test` / `bug_in_product`, пишет `bug.md`. | analyzer |
+| `agents/business-analyst.md` | sonnet | Chat-interview with the customer, produces `analytic/increment.md`. | business-analyst |
+| `agents/analytic-reviewer.md` | opus, read-only | Semantic review of `increment.md` against the original task. | analytic-reviewer |
+| `agents/analyzer.md` | opus | Analysis of failed tests → verdict `bug_in_test` / `bug_in_product`, writes `bug.md`. | analyzer |
 
-### Из старого дизайна — НЕ делаем (потому что покрыто иначе)
+### From the old design — NOT implemented (covered differently)
 
-| Старая роль | Куда переехала |
+| Old role | Moved to |
 |---|---|
-| `system-analyst` | Внутрь `/dev_plan` — он сам декомпозирует increment.md в технические задачи. |
-| `explorer` | `context-router` + Glob/Grep/Serena MCP внутри builder/plan-reviewer. |
-| `planner` | `/dev_plan` — слот orchestrator-планировщика. |
-| `team-lead` | Не отдельный агент. Главный prompt `/dev_plan` + TaskCreate / addBlockedBy / owner = оркестрация по факту. |
-| `reviewer` (LLM по diff) | `plan-reviewer` (ревью плана) + `validator` (проверка результатов) — закрывают тот же гэп с двух сторон. |
-| `auto-tester`, `test-modeler` | Внутри `/dev_plan` через mandatory integration layer + Test Infra Interview. |
+| `system-analyst` | Into `/dev_plan` — it decomposes increment.md into technical tasks itself. |
+| `explorer` | `context-router` + Glob/Grep/Serena MCP inside builder/plan-reviewer. |
+| `planner` | `/dev_plan` — the orchestrator-planner slot. |
+| `team-lead` | Not a separate agent. The main `/dev_plan` prompt + TaskCreate / addBlockedBy / owner = de-facto orchestration. |
+| `reviewer` (LLM over diff) | `plan-reviewer` (plan review) + `validator` (result verification) — close the same gap from both sides. |
+| `auto-tester`, `test-modeler` | Inside `/dev_plan` via mandatory integration layer + Test Infra Interview. |
 
 ---
 
-## 2. Спецификации новых агентов
+## 2. New Agent Specifications
 
-> Ниже — **черновики самих markdown'ов**, которые мы положим в `.claude/agents/<name>.md`. Системные промпты ещё будут отполированы при имплементации, но костяк зафиксирован.
+> Below are **draft markdowns** that we will place in `.claude/agents/<name>.md`. The system prompts will be polished further during implementation, but the skeleton is fixed.
 
 ### 2.1. `business-analyst.md`
 
 ```yaml
 ---
 name: business-analyst
-description: Бизнес-аналитик. Ведёт chat-interview с заказчиком, формирует analytic/increment.md.
+description: Business analyst. Conducts chat-interview with the customer, produces analytic/increment.md.
 model: sonnet
 color: green
 tools: Read, Write, Edit, Glob, Grep
@@ -99,46 +99,46 @@ tools: Read, Write, Edit, Glob, Grep
 # Business Analyst
 
 ## Purpose
-Ты — старший бизнес-аналитик. Твоя задача — провести интервью с заказчиком и
-сформировать спецификацию инкремента в файле `analytic/increment.md`.
+You are a senior business analyst. Your task is to conduct an interview with the customer and
+produce the increment specification in the file `analytic/increment.md`.
 
-## ОБЯЗАТЕЛЬНЫЕ СЕКЦИИ increment.md
-1. **Цель инкремента** — 1–2 абзаца, что и зачем меняем.
-2. **Функциональные требования** — нумерованный список.
-3. **Нефункциональные требования** — производительность, безопасность, надёжность.
-4. **Business-flow** — текстовое описание + последовательность шагов.
-5. **Сценарии использования** — в формате Given-When-Then.
-6. **Acceptance criteria** — измеримые критерии приёмки.
+## REQUIRED SECTIONS of increment.md
+1. **Increment goal** — 1–2 paragraphs on what we are changing and why.
+2. **Functional requirements** — numbered list.
+3. **Non-functional requirements** — performance, security, reliability.
+4. **Business flow** — textual description + sequence of steps.
+5. **Usage scenarios** — in Given-When-Then format.
+6. **Acceptance criteria** — measurable acceptance criteria.
 
-## Правила диалога
-- Веди интервью последовательно, по одной теме за раз.
-- Задавай уточняющие вопросы, если ответ заказчика неполный.
-- НЕ пиши `increment.md`, пока не считаешь, что собрал всё необходимое.
-- Перед записью покажи план секций и спроси подтверждение у заказчика.
-- В первом сообщении сохрани исходную задачу заказчика в `analytic/original_task.txt`.
+## Dialogue Rules
+- Conduct the interview sequentially, one topic at a time.
+- Ask follow-up questions if the customer's answer is incomplete.
+- Do NOT write `increment.md` until you believe you have gathered everything necessary.
+- Before writing, show the section plan and ask the customer for confirmation.
+- In the first message, save the customer's original task to `analytic/original_task.txt`.
 
-## При итерации (получены замечания от validate_increment.py или analytic-reviewer)
-- Прочитай отчёт.
-- Каждое замечание оцени:
-  - **знаешь, как исправить?** → правь `increment.md` самостоятельно.
-  - **нужны уточнения?** → задавай заказчику.
-- После правок сохрани новую версию `increment.md`.
+## During Iteration (feedback received from validate_increment.py or analytic-reviewer)
+- Read the report.
+- Assess each finding:
+  - **know how to fix it?** → fix `increment.md` on your own.
+  - **need clarification?** → ask the customer.
+- After edits, save the new version of `increment.md`.
 
 ## Workflow
-1. Прими исходную задачу заказчика (`analytic/original_task.txt`).
-2. Веди диалог: вопрос → ответ → уточнение, пока чек-лист обязательных секций не покрыт.
-3. Покажи план секций; спроси подтверждение.
-4. Запиши `analytic/increment.md`.
-5. Дождись запуска `validate_increment.py` (Stop-hook) и `analytic-reviewer`.
-6. При замечаниях — итерация (см. выше).
+1. Accept the customer's original task (`analytic/original_task.txt`).
+2. Conduct dialogue: question → answer → follow-up, until the checklist of required sections is covered.
+3. Show the section plan; ask for confirmation.
+4. Write `analytic/increment.md`.
+5. Await the `validate_increment.py` run (Stop-hook) and `analytic-reviewer`.
+6. On findings — iterate (see above).
 
 ## Report
-После записи:
+After writing:
 ```
 ## Increment Drafted
 **File**: analytic/increment.md
-**Sections covered**: цель / ФТ / НФТ / business-flow / сценарии / acceptance
-**Open questions**: <если есть>
+**Sections covered**: goal / FR / NFR / business-flow / scenarios / acceptance
+**Open questions**: <if any>
 ```
 ```
 
@@ -149,7 +149,7 @@ tools: Read, Write, Edit, Glob, Grep
 ```yaml
 ---
 name: analytic-reviewer
-description: Старший аналитик. Read-only ревью analytic/increment.md против original_task.txt по 4 осям.
+description: Senior analyst. Read-only review of analytic/increment.md against original_task.txt across 4 axes.
 model: opus
 color: orange
 disallowedTools: Write, Edit, NotebookEdit
@@ -161,47 +161,47 @@ tools: Read, Glob, Grep
 # Analytic Reviewer
 
 ## Purpose
-Read-only семантическое ревью `analytic/increment.md`. Ты НЕ модифицируешь файлы —
-выносишь structured verdict для `business-analyst`.
+Read-only semantic review of `analytic/increment.md`. You do NOT modify files —
+you issue a structured verdict for `business-analyst`.
 
-## Входы
-- `analytic/original_task.txt` — исходная задача от заказчика.
-- `analytic/increment.md` — текущая версия спецификации.
+## Inputs
+- `analytic/original_task.txt` — the customer's original task.
+- `analytic/increment.md` — the current version of the specification.
 
-## 4 оси ревью
-1. **completeness** — всё ли из исходной задачи отражено в спеке?
-2. **excess** — нет ли в спеке того, чего заказчик не просил?
-3. **contradiction** — нет ли внутренних противоречий?
-4. **readiness** — достаточна ли детализация для технической разработки?
+## 4 Review Axes
+1. **completeness** — is everything from the original task reflected in the spec?
+2. **excess** — does the spec contain anything the customer did not request?
+3. **contradiction** — are there any internal contradictions?
+4. **readiness** — is the level of detail sufficient for technical development?
 
-## Формат вывода
-**СТРОГО JSON**, без свободного текста, в файл `analytic/review-report.json`:
+## Output Format
+**STRICTLY JSON**, no free text, written to `analytic/review-report.json`:
 ```json
 {
   "status": "ok" | "needs_revision",
   "issues": [
     {
-      "section": "<имя секции increment.md>",
+      "section": "<section name in increment.md>",
       "severity": "critical" | "major" | "minor",
       "axis": "completeness" | "excess" | "contradiction" | "readiness",
-      "comment": "<человекочитаемое описание>"
+      "comment": "<human-readable description>"
     }
   ]
 }
 ```
 
-## Правила статуса
-- `issues` пустой → `status = "ok"`.
-- Есть хотя бы одна `critical` или `major` → `status = "needs_revision"`.
-- Только `minor` → `status = "ok"` (минорные просто фиксируем в отчёте).
+## Status Rules
+- `issues` is empty → `status = "ok"`.
+- At least one `critical` or `major` → `status = "needs_revision"`.
+- Only `minor` → `status = "ok"` (minor issues are just recorded in the report).
 
-## Правила работы
-- Будь критичен, не рубберстампь. Твоя ценность — поймать пробелы рано.
-- Один FAIL = `needs_revision`. Не смягчай до `minor` ради вежливости.
-- Не нитпикай форматирование — фокус на correctness и completeness.
+## Working Rules
+- Be critical, do not rubber-stamp. Your value lies in catching gaps early.
+- One FAIL = `needs_revision`. Do not soften to `minor` out of politeness.
+- Do not nitpick formatting — focus on correctness and completeness.
 
 ## Report
-После записи `analytic/review-report.json`:
+After writing `analytic/review-report.json`:
 ```
 ## Analytic Review
 **Verdict**: <ok | needs_revision>
@@ -217,7 +217,7 @@ Read-only семантическое ревью `analytic/increment.md`. Ты Н
 ```yaml
 ---
 name: analyzer
-description: Senior QA. Анализирует упавшие тесты, выносит verdict bug_in_test / bug_in_product, пишет bug.md при необходимости.
+description: Senior QA. Analyzes failed tests, issues verdict bug_in_test / bug_in_product, writes bug.md when needed.
 model: opus
 color: purple
 tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__search_for_pattern
@@ -228,56 +228,56 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__fin
 # Analyzer
 
 ## Purpose
-Ты — старший QA-инженер. По результатам прогона тестов в `test/runs/<ts>/`
-определяешь — баг в самом тесте или продукт нарушает спеку.
+You are a senior QA engineer. Based on the test run results in `test/runs/<ts>/`
+you determine whether the bug is in the test itself or whether the product violates the spec.
 
-## Входы
-- `test/runs/<ts>/logs.ndjson` — структурированные логи прогона.
-- `test/runs/<ts>/junit.xml` — отчёт runner'а (или эквивалент).
-- `analytic/increment.md` — спецификация продукта (read-only).
-- `specs/<последний-план>.md` — план разработки (read-only).
-- Кодовая база (через Serena/Glob/Read) — для соотнесения.
+## Inputs
+- `test/runs/<ts>/logs.ndjson` — structured run logs.
+- `test/runs/<ts>/junit.xml` — runner report (or equivalent).
+- `analytic/increment.md` — product specification (read-only).
+- `specs/<latest-plan>.md` — development plan (read-only).
+- Codebase (via Serena/Glob/Read) — for correlation.
 
-## Решение по каждому упавшему тесту
-- **`bug_in_test`** — ошибка в самом тесте (плохие моки, неверные ожидания,
-  flakiness). Никакого расхождения со спекой нет.
-- **`bug_in_product`** — продукт нарушает требования из `increment.md`.
-  Тест корректен.
+## Decision for Each Failed Test
+- **`bug_in_test`** — the error is in the test itself (bad mocks, incorrect expectations,
+  flakiness). No divergence from the spec.
+- **`bug_in_product`** — the product violates requirements from `increment.md`.
+  The test is correct.
 
-## Агрегация
-- Если хотя бы один verdict == `bug_in_product` → один сводный `bug.md`
-  в `test/runs/<ts>/bug.md` с разделом «Затронутые тесты» и общим блоком
-  «Что нарушено».
-- Если все verdicts == `bug_in_test` → `bug.md` НЕ создавать; вернуть только
-  verdicts в Report.
+## Aggregation
+- If at least one verdict == `bug_in_product` → one consolidated `bug.md`
+  at `test/runs/<ts>/bug.md` with a section "Affected Tests" and a shared
+  "What is violated" block.
+- If all verdicts == `bug_in_test` → do NOT create `bug.md`; return only
+  verdicts in the Report.
 
-## Правила уверенности
-- Низкая уверенность (`confidence = "low"`) → склоняйся к `bug_in_test`
-  (более дешёвый путь правки).
-- Будь осторожен с `bug_in_product` — это запускает полный цикл Dev_scope.
+## Confidence Rules
+- Low confidence (`confidence = "low"`) → lean toward `bug_in_test`
+  (the cheaper fix path).
+- Be cautious with `bug_in_product` — it triggers the full Dev_scope cycle.
 
-## Формат `bug.md`
+## `bug.md` Format
 ```markdown
-# BUG: <короткое название>
-## Сводка
-## Воспроизведение (по логам)
-## Что нарушено в increment.md
-- Пункт <X> из секции <…>
-## Затронутые тесты
-- <test_id> — <причина связи>
-## Предлагаемая зона исправления
-- <модули / эндпоинты — по результатам Serena search>
+# BUG: <short name>
+## Summary
+## Reproduction (from logs)
+## What is violated in increment.md
+- Item <X> from section <…>
+## Affected Tests
+- <test_id> — <reason for connection>
+## Suggested fix area
+- <modules / endpoints — based on Serena search results>
 ```
 
 ## Workflow
-1. Прочитай logs.ndjson и junit.xml; составь список упавших test_id.
-2. Для каждого упавшего теста:
-   a. Прочитай сам тест.
-   b. По Serena `find_symbol` найди тестируемые продукт-классы.
-   c. Сравни поведение продукта с требованиями `increment.md`.
-   d. Вынеси verdict + confidence + 1–3 строки rationale.
-3. Если есть хотя бы один `bug_in_product` → запиши `bug.md`.
-4. Запиши json-отчёт `test/runs/<ts>/analyzer-report.json`.
+1. Read logs.ndjson and junit.xml; compile the list of failed test_ids.
+2. For each failed test:
+   a. Read the test itself.
+   b. Use Serena `find_symbol` to locate the product classes under test.
+   c. Compare product behavior against the requirements in `increment.md`.
+   d. Issue a verdict + confidence + 1–3 lines of rationale.
+3. If there is at least one `bug_in_product` → write `bug.md`.
+4. Write JSON report `test/runs/<ts>/analyzer-report.json`.
 
 ## Report
 ```
@@ -290,14 +290,14 @@ tools: Read, Write, Glob, Grep, Bash, mcp__serena__find_symbol, mcp__serena__fin
 
 ---
 
-## 3. Новые команды (`commands/`)
+## 3. New Commands (`commands/`)
 
-### 3.1. `commands/analyze.md` (черновик)
+### 3.1. `commands/analyze.md` (draft)
 
 ```yaml
 ---
-description: Старт Analytic_scope — вызывает business-analyst, ведёт chat-interview, по итогу analytic/increment.md + analytic-reviewer + HITL.
-argument-hint: "<краткое описание задачи от заказчика>"
+description: Start of Analytic_scope — calls business-analyst, conducts chat-interview, results in analytic/increment.md + analytic-reviewer + HITL.
+argument-hint: "<brief task description from the customer>"
 model: sonnet
 hooks:
   Stop:
@@ -313,32 +313,32 @@ hooks:
 # /analyze
 
 ## Variables
-- USER_TASK: $1 — исходная задача от заказчика (одна строка-фраза).
+- USER_TASK: $1 — the customer's original task (a single-line phrase).
 
 ## Workflow
-1. Сохрани USER_TASK в `analytic/original_task.txt`.
-2. Делегируй работу агенту `business-analyst` с заданием:
-   "Проведи chat-interview по задаче в original_task.txt; напиши analytic/increment.md".
-3. После того как `business-analyst` запишет `increment.md`:
-   a. Stop-hook автоматически запустит `validate_increment.py`.
-   b. Если валидация прошла — вызови `analytic-reviewer` как subagent.
-4. По verdict'у:
-   - `ok` → попроси заказчика подтвердить approve (показ итогового `increment.md` + сводка).
-   - `needs_revision` → верни управление `business-analyst` с `review-report.json` как input.
-5. После approve — сообщи пользователю: «Готово для `/dev_plan`».
+1. Save USER_TASK to `analytic/original_task.txt`.
+2. Delegate work to the `business-analyst` agent with the assignment:
+   "Conduct a chat-interview based on the task in original_task.txt; write analytic/increment.md".
+3. After `business-analyst` writes `increment.md`:
+   a. The Stop-hook will automatically run `validate_increment.py`.
+   b. If validation passes — call `analytic-reviewer` as a subagent.
+4. Based on the verdict:
+   - `ok` → ask the customer to confirm approval (show the final `increment.md` + summary).
+   - `needs_revision` → return control to `business-analyst` with `review-report.json` as input.
+5. After approval — notify the user: "Ready for `/dev_plan`".
 
 ## Instructions
-- НЕ пиши `increment.md` сам — это работа `business-analyst`.
-- НЕ принимай approve за пользователя.
-- Если интервью затянулось на ≥ 5 итераций валидации — предложи пользователю
-  поставить процесс на паузу и пересмотреть task.
+- Do NOT write `increment.md` yourself — that is `business-analyst`'s job.
+- Do NOT accept approval on behalf of the user.
+- If the interview has gone through ≥ 5 validation iterations — suggest to the user
+  to pause the process and revisit the task.
 ```
 
-### 3.2. `commands/test_run.md` (черновик)
+### 3.2. `commands/test_run.md` (draft)
 
 ```yaml
 ---
-description: Запуск declared runner'ов из последнего плана; при падениях — вызов analyzer и bug-routing.
+description: Runs declared runners from the latest plan; on failures — calls analyzer and bug-routing.
 argument-hint: "[--plan <path>] [--layer integration|unit|e2e]"
 model: sonnet
 ---
@@ -348,34 +348,34 @@ model: sonnet
 # /test_run
 
 ## Variables
-- PLAN_PATH: $1 (--plan), default = последний `.md` в `specs/` (по mtime).
-- LAYER: $2 (--layer), default = все non-Skipped layers.
+- PLAN_PATH: $1 (--plan), default = the latest `.md` in `specs/` (by mtime).
+- LAYER: $2 (--layer), default = all non-Skipped layers.
 
 ## Workflow
-1. Прочитай `specs/<plan>.md`, секцию `## Test Infrastructure (User-Declared)`.
-2. Для каждого выбранного `Layer`:
-   a. Создай директорию `test/runs/<ISO-timestamp>/`.
-   b. Запусти `Runner command` через Bash.
-   c. Сохрани stdout/stderr в `logs.ndjson`, junit-вывод в `junit.xml`.
-3. Если хотя бы один runner вернул exit ≠ 0 → вызови `analyzer` как subagent.
-4. По результату analyzer'а:
-   - `bug.md` создан → сообщи пользователю: «Получен bug.md, можно запустить
-     `/dev_plan` с этим контекстом для доработки».
-   - `bug.md` не создан → сообщи: «Все падения — ошибки в самих тестах,
-     передан builder'у на правку».
+1. Read `specs/<plan>.md`, section `## Test Infrastructure (User-Declared)`.
+2. For each selected `Layer`:
+   a. Create directory `test/runs/<ISO-timestamp>/`.
+   b. Run the `Runner command` via Bash.
+   c. Save stdout/stderr to `logs.ndjson`, junit output to `junit.xml`.
+3. If at least one runner returned exit ≠ 0 → call `analyzer` as a subagent.
+4. Based on the analyzer's result:
+   - `bug.md` created → notify the user: "bug.md received, you can run
+     `/dev_plan` with this context to fix the issue".
+   - `bug.md` not created → notify: "All failures are errors in the tests themselves,
+     passed to the builder for fixing".
 
 ## Instructions
-- Не модифицируй продукт-код.
-- Если в плане нет `Test Infrastructure (User-Declared)` (старый формат) —
-  fallback на стандартные стек-команды (`mvn test`, `mvn verify`) и эмитируй
-  WARN в report.
+- Do not modify product code.
+- If the plan has no `Test Infrastructure (User-Declared)` (old format) —
+  fall back to standard stack commands (`mvn test`, `mvn verify`) and emit
+  a WARN in the report.
 ```
 
-### 3.3. `commands/merge_gate.md` (черновик)
+### 3.3. `commands/merge_gate.md` (draft)
 
 ```yaml
 ---
-description: Финальный HITL approve перед коммитом инкремента в основную ветку.
+description: Final HITL approve before committing the increment to the main branch.
 argument-hint: "[--message <commit-msg>]"
 model: sonnet
 ---
@@ -385,33 +385,33 @@ model: sonnet
 # /merge_gate
 
 ## Workflow
-1. Покажи пользователю:
-   - текущую ветку инкремента,
-   - git diff против base-ветки (сводно),
-   - последний `analyzer-report.json` (если есть),
-   - статусы последнего `validator`'а (PASS/FAIL).
-2. Спроси: «approve / reject»?
+1. Show the user:
+   - the current increment branch,
+   - git diff against the base branch (summary),
+   - the latest `analyzer-report.json` (if any),
+   - the latest `validator` statuses (PASS/FAIL).
+2. Ask: "approve / reject"?
 3. **approve:**
-   - Прими commit message (или используй `--message`).
-   - Сделай `git commit -m "..."` (если есть unstaged) и/или `git tag` инкремента.
-   - Сообщи пользователю об успешном merge.
+   - Accept the commit message (or use `--message`).
+   - Run `git commit -m "..."` (if there are unstaged changes) and/or `git tag` the increment.
+   - Notify the user of a successful merge.
 4. **reject:**
-   - Спроси reason, сохрани в `analytic/rejection_comment.txt`.
-   - Сообщи: «Reject зафиксирован, можно запустить `/dev_plan` с rejection.txt
-     как уточнение».
+   - Ask for the reason, save it to `analytic/rejection_comment.txt`.
+   - Notify: "Reject recorded, you can run `/dev_plan` with rejection.txt
+     as a clarification".
 ```
 
 ---
 
-## 4. Новые hooks (`hooks/validators/`)
+## 4. New Hooks (`hooks/validators/`)
 
-### 4.1. `validate_increment.py` (контракт)
+### 4.1. `validate_increment.py` (contract)
 
-**Назначение:** детерминированная проверка формальной структуры `analytic/increment.md`. Без LLM. Запускается как Stop-hook у `/analyze`.
+**Purpose:** deterministic check of the formal structure of `analytic/increment.md`. No LLM. Runs as a Stop-hook for `/analyze`.
 
-**Принимает:** `--file <path>` (default `analytic/increment.md`).
+**Accepts:** `--file <path>` (default `analytic/increment.md`).
 
-**Возвращает:**
+**Returns:**
 - exit code: `0` = ok, `≠ 0` = fail.
 - stdout: JSON.
 
@@ -427,50 +427,50 @@ model: sonnet
 }
 ```
 
-**Проверки:**
-1. **has_required_sections** — присутствуют H2 для всех 6 обязательных секций (см. `business-analyst`).
-2. **minimum_length_per_section** — каждая секция содержит минимум 50 символов содержательного текста (порог настраивается).
-3. **scenarios_parseable_as_gwt** — каждый сценарий распознаётся как Given-When-Then (есть `Given`, `When`, `Then` в каждом блоке).
-4. **acceptance_criteria_format** — нумерованный список ≥ 1 пункта.
+**Checks:**
+1. **has_required_sections** — H2 headings are present for all 6 required sections (see `business-analyst`).
+2. **minimum_length_per_section** — each section contains at least 50 characters of meaningful text (threshold is configurable).
+3. **scenarios_parseable_as_gwt** — each scenario is recognized as Given-When-Then (each block contains `Given`, `When`, `Then`).
+4. **acceptance_criteria_format** — a numbered list with ≥ 1 item.
 
 ---
 
-## 5. Скиллы и refs
+## 5. Skills and Refs
 
-### Скиллы
+### Skills
 
-На данном этапе **не вводим отдельных скиллов** — Claude Code умеет переиспользовать инструкции через subagents и refs. Если в процессе работы появится «общий кусок логики» нужный нескольким агентам — это будет триггер ввести skill.
+At this stage **no separate skills are introduced** — Claude Code is capable of reusing instructions via subagents and refs. If during the work a "shared piece of logic" needed by multiple agents appears — that will be the trigger to introduce a skill.
 
 ### Refs
 
-| ref | Откуда | Используется |
+| ref | Source | Used by |
 |---|---|---|
-| `java-patterns.md` | upstream | builder (на любую Java-задачу) |
-| `java-testing.md` | upstream | builder (при тестах), validator (при прогоне) |
-| `python-*.md`, `react-*.md`, `rust-*.md` | upstream | builder (под соответствующий стек) |
-| `<domain refs>` | мы добавляем | builder, business-analyst (для специфики предметной области команды) |
+| `java-patterns.md` | upstream | builder (for any Java task) |
+| `java-testing.md` | upstream | builder (for tests), validator (during runs) |
+| `python-*.md`, `react-*.md`, `rust-*.md` | upstream | builder (for the corresponding stack) |
+| `<domain refs>` | added by us | builder, business-analyst (for team domain specifics) |
 
-Доменные refs добавляем по мере появления нужды — не заранее «про запас». Источник keywords для матчинга — раздел `Section Routing Catalog` в `commands/dev_plan.md`.
+Domain refs are added as the need arises — not preemptively "just in case". The keyword source for matching is the `Section Routing Catalog` section in `commands/dev_plan.md`.
 
 ---
 
-## 6. Параметры сквозного процесса (зафиксировано)
+## 6. Cross-Process Parameters (fixed)
 
-| Тема | Значение |
+| Topic | Value |
 |---|---|
-| Лимит итераций Analytic (валидатор/ревьюер циклы) | 5 |
-| Лимит итераций Dev (builder ↔ validator) | контролирует `/dev_plan`-orchestrator (TaskList) — мягко |
-| Stop-loss по analyzer'у | 5 циклов `bug_in_test` подряд по одному test_id → эскалация |
-| HITL точки | (a) approve `increment.md`; (b) approve plan (`ExitPlanMode`); (c) approve merge (`/merge_gate`) |
-| Хранилище артефактов | git, ветка инкремента |
-| Триггер `/test_run` | вручную пользователем; auto-trigger (cued after merge) — опция на будущее |
+| Analytic iteration limit (validator/reviewer cycles) | 5 |
+| Dev iteration limit (builder ↔ validator) | controlled by `/dev_plan` orchestrator (TaskList) — soft |
+| Analyzer stop-loss | 5 consecutive `bug_in_test` cycles for one test_id → escalation |
+| HITL checkpoints | (a) approve `increment.md`; (b) approve plan (`ExitPlanMode`); (c) approve merge (`/merge_gate`) |
+| Artifact storage | git, increment branch |
+| `/test_run` trigger | manually by the user; auto-trigger (cued after merge) — future option |
 
 ---
 
-## 7. Открытые вопросы
+## 7. Open Questions
 
-1. **Auto-trigger `analytic-reviewer` после успешного `validate_increment.py`** — делаем как Stop-hook второго уровня или как явный шаг в `/analyze`? Рекомендация: явный шаг (проще читать flow).
-2. **HITL approve в `/analyze`** — техническая реализация: ждать сообщения пользователя в чате? Или ExitPlanMode-like механизм? Зависит от того, какой UX Claude Code даёт для подтверждений.
-3. **Серена и Context7 как обязательные MCP** — стоит ли требовать или оставить optional с fallback на Glob/Grep, как сейчас в upstream-агентах. Рекомендация: optional, для toy-проекта они избыточны.
-4. **`merge_gate` как команда vs Stop-hook у `validator`** — пока выбрал команду (явный шаг). При имплементации могу пересмотреть.
-5. **Доменные refs** — какие именно нужны нашей команде первой волной (RAG-конвенции, MCP-конвенции, корп-Spring-стиль)? Уточним при имплементации с PO.
+1. **Auto-trigger `analytic-reviewer` after successful `validate_increment.py`** — do we implement it as a second-level Stop-hook or as an explicit step in `/analyze`? Recommendation: explicit step (easier to read the flow).
+2. **HITL approve in `/analyze`** — technical implementation: wait for a user message in the chat? Or an ExitPlanMode-like mechanism? Depends on what UX Claude Code provides for confirmations.
+3. **Serena and Context7 as mandatory MCPs** — should we require them or leave optional with a fallback to Glob/Grep, as in the current upstream agents? Recommendation: optional; for a toy project they are redundant.
+4. **`merge_gate` as a command vs. Stop-hook on `validator`** — currently chosen as a command (explicit step). May reconsider during implementation.
+5. **Domain refs** — which ones does our team need in the first wave (RAG conventions, MCP conventions, corporate Spring style)? Will clarify during implementation with the PO.
